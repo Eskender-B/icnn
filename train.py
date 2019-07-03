@@ -58,7 +58,7 @@ else:
 ####################################
 ############ iCNN Model ############
 
-model = iCNN()
+model = ICNN()
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 criterion = nn.CrossEntropyLoss()
 model = model.to(device)
