@@ -70,7 +70,7 @@ class ImageDataset(Dataset):
 		transform (callable, optional): Optional transform to be applied
 		on a sample.
 		"""
-		self.name_list = np.loadtxt(txt_file, dtype='str', delimiter=',')
+		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
 	def __len__(self):
