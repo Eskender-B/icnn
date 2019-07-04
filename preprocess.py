@@ -54,7 +54,7 @@ class ToTensor(object):
 		# numpy image: H x W x C
 		# torch image: C X H X W
 		image = image.transpose((2, 0, 1))
-		return {'image': torch.from_numpy(image),
+		return {'image': torch.from_numpy(image).float(),
 		'labels': torch.from_numpy(labels)}
 
 
@@ -73,18 +73,24 @@ class ImageDataset(Dataset):
 		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
+
 	def __len__(self):
 		return len(self.name_list)
+
 	def __getitem__(self, idx):
 		img_name = os.path.join(self.root_dir, 'images',
-		self.name_list[idx, 1].strip() + '.jpg')
+			self.name_list[idx, 1].strip() + '.jpg')
+
 		image = io.imread(img_name)
+
 		label_name = os.path.join(self.root_dir, 'labels',
-		self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
+			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
+
 		labels = []
 		for i in range(1,11):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
+		
 		sample = {'image': image, 'labels': labels}
 		if self.transform:
 			sample = self.transform(sample)

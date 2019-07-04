@@ -7,15 +7,16 @@ import numpy as np
 from preprocess import Rescale, ToTensor, ImageDataset
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
-from model import iCNN
+from model import ICNN
 import argparse
 from utils import LOG_INFO
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=4, type=int, help="Batch size to use during training.")
-parser.add_argument("--display_freq", default=50, type=int, help="Display frequency")
+parser.add_argument("--display_freq", default=1, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
+parser.add_argument("--epochs", default=10, type=float, help="Learning rate for optimizer")
 args = parser.parse_args()
 print(args)
 
@@ -56,7 +57,7 @@ else:
 	device = torch.device("cpu")
 
 ####################################
-############ iCNN Model ############
+############ ICNN Model ############
 
 model = ICNN()
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
