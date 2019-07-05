@@ -13,7 +13,7 @@ from utils import LOG_INFO
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
+parser.add_argument("--batch_size", default=10, type=int, help="Batch size to use during training.")
 parser.add_argument("--display_freq", default=1, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
 parser.add_argument("--epochs", default=10, type=float, help="Number of epochs to train")
@@ -62,7 +62,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 ############ ICNN Model ############
 
 model = ICNN()
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
+optimizer = optim.SGD(model.parameters(), lr=args.lr)
 criterion = nn.CrossEntropyLoss()
 model = model.to(device)
 criterion = criterion.to(device)
