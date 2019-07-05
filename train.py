@@ -20,6 +20,11 @@ parser.add_argument("--epochs", default=10, type=float, help="Learning rate for 
 args = parser.parse_args()
 print(args)
 
+if torch.cuda.is_available():
+	device = torch.device("cuda:0")
+else:
+	device = torch.device("cpu")
+
 # Load data
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
@@ -51,10 +56,7 @@ test_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 
 
-if torch.cuda.is_available():
-	device = torch.device("cuda:0")
-else:
-	device = torch.device("cpu")
+
 
 ####################################
 ############ ICNN Model ############
@@ -68,15 +70,16 @@ criterion = criterion.to(device)
 
 
 
-
 def train(epoch, model, train_loader, optimizer, criterion):
 	loss_list = []
 	model.train()
 
 	for i, batch in enumerate(train_loader):
 		optimizer.zero_grad()
-		predictions = model(batch['image'])
-		loss = criterion(predictions, batch['labels'].argmax(dim=1, keepdim=False))
+		image, labels = batch['image'].to(device), batch['labels'].to(device)
+		predictions = model(image)
+		loss = criterion(predictions, labels.argmax(dim=1, keepdim=False))
+
 		loss.backward()
 		optimizer.step()
 
@@ -97,8 +100,9 @@ def evaluate(model, loader, criterion):
 
 	with torch.no_grad():
 		for batch in loader:
-			predictions = model(batch['image'])
-			loss = criterion(predictions, batch['labels'].argmax(dim=1, keepdim=False))
+			image, labels = batch['image'].to(device), batch['labels'].to(device)
+			predictions = model(image)
+			loss = criterion(predictions, labels.argmax(dim=1, keepdim=False))
 
 			epoch_loss += loss.item()
 
