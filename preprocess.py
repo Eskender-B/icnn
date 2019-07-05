@@ -87,7 +87,7 @@ class ImageDataset(Dataset):
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
 		labels = []
-		for i in range(1,11):
+		for i in range(2,10):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
 		

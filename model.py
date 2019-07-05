@@ -11,9 +11,9 @@ class ICNN(nn.Module):
 		self.num_rows = 4
 		self.num_interlink_layer = 3
 		self.sf = 2
-		self.kernel_size = 5
+		self.kernel_size = 5	# has to be odd (or need to change padding below)
 		self.last_kernel_size = 9
-		self.L = 10
+		self.L = 8
 		self.num_channel_orignal = [8*i for i in range(1, self.num_rows+1)]		# [8, 16, 24, 32]
 		self.num_channel_interlinked = shift(self.num_channel_orignal, -1, 0) + self.num_channel_orignal + shift(self.num_channel_orignal, 1, 0) 
 
@@ -75,9 +75,9 @@ class ICNN(nn.Module):
 
 				# Interlink
 				tmp_inp = torch.cat(
-				[F.max_pool2d(row_inps_prev[r-1], kernel_size=3, stride=self.sf, padding=1) if r-1>=0 else torch.Tensor(device=inp.device), # Downsample
+				[F.max_pool2d(row_inps_prev[r-1], kernel_size=3, stride=self.sf, padding=1) if r-1>=0 else torch.Tensor().to(inp.device), # Downsample
 				row_inps_prev[r],					
-				F.interpolate(row_inps_prev[r+1], scale_factor=self.sf, mode='nearest') if r+1<self.num_rows !=0 else torch.Tensor(device=inp.device)],	#Upsample
+				F.interpolate(row_inps_prev[r+1], scale_factor=self.sf, mode='nearest') if r+1<self.num_rows !=0 else torch.Tensor().to(inp.device)],	#Upsample
 				dim=1)
 				
 				# Convolve

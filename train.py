@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
 parser.add_argument("--display_freq", default=1, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
-parser.add_argument("--epochs", default=10, type=float, help="Learning rate for optimizer")
+parser.add_argument("--epochs", default=10, type=float, help="Number of epochs to train")
 args = parser.parse_args()
 print(args)
 
@@ -42,7 +42,7 @@ valid_dataset = ImageDataset(txt_file='tuning.txt',
                                                Rescale((64,64)),
                                                ToTensor()
                                            ]))
-valid_loader = DataLoader(train_dataset, batch_size=args.batch_size,
+valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 
 
@@ -52,7 +52,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                                Rescale((64,64)),
                                                ToTensor()
                                            ]))
-test_loader = DataLoader(train_dataset, batch_size=args.batch_size,
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 
 
@@ -119,7 +119,7 @@ for epoch in range(1, args.epochs + 1):
 
 torch.save(model.state_dict(), 'saved-model.pth')
 
-LOG_INFO('Test best model @ Epoch %02d' % best_epoch)
+
 model.load_state_dict(torch.load('saved-model.pth'))
 test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('Finally, test loss = %.4f' % (test_loss))
