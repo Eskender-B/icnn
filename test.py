@@ -6,7 +6,8 @@ from preprocess import Rescale, ToTensor, ImageDataset
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
 import argparse
-
+import numpy as np
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
@@ -50,4 +51,39 @@ criterion = criterion.to(device)
 
 model.load_state_dict(torch.load('saved-model.pth'))
 test_loss = evaluate(model, test_loader, criterion)
-LOG_INFO('Finally, test loss = %.4f' % (test_loss))
+LOG_INFO('test loss = %.4f' % (test_loss))
+
+
+###### See some images ######
+#colors = torch.Tensor([(255,255,255),	(255,0,0), (0,255,0), (0,0,255), (255,255,0), (0,255,255), (255,0,255),(192,192,192)]).to(device)
+n_test = 5
+indxs = np.random.randint(len(test_dataset), size=n_test)
+
+images = torch.stack([test_dataset[i]['image'] for i in indxs]).to(device)
+orig_labels = np.array([test_dataset[i]['labels'].numpy() for i in indxs]).argmax(axis=1)
+
+pred_labels = model(images).argmax(dim=1, keepdim=False).to('cpu')
+images = images.transpose(1,2).transpose(2,3).to('cpu')
+
+
+for i in range(n_test):
+	ax = plt.subplot(3, n_test, i + 1)
+	plt.tight_layout()
+	ax.set_title('Sample #{}'.format(i))
+	ax.axis('off')
+	plt.imshow(images[i])
+
+	ax = plt.subplot(3, n_test, n_test+i + 1)
+	plt.tight_layout()
+	ax.set_title('Sample #{}'.format(i))
+	ax.axis('off')
+	plt.imshow(pred_labels[i])
+
+	ax = plt.subplot(3, n_test, 2*n_test+i + 1)
+	plt.tight_layout()
+	ax.set_title('Sample #{}'.format(i))
+	ax.axis('off')
+	plt.imshow(orig_labels[i])
+
+plt.savefig('test_outputs.jpg')
+
