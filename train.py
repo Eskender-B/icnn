@@ -13,7 +13,7 @@ from utils import LOG_INFO
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=4, type=int, help="Batch size to use during training.")
+parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
 parser.add_argument("--display_freq", default=1, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
 parser.add_argument("--epochs", default=10, type=float, help="Learning rate for optimizer")
@@ -27,7 +27,7 @@ train_dataset = ImageDataset(txt_file='exemplars.txt',
                                                Rescale((64,64)),
                                                ToTensor()
                                            ]))
-train_loader = DataLoader(train_dataset, batch_size=4,
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 
 
@@ -97,7 +97,7 @@ def evaluate(model, loader, criterion):
 
 	with torch.no_grad():
 		for batch in loader:
-			predictions = model(batch.image)
+			predictions = model(batch['image'])
 			loss = criterion(predictions, batch['labels'].argmax(dim=1, keepdim=False))
 
 			epoch_loss += loss.item()
