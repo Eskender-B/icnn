@@ -72,16 +72,16 @@ def show_centroids(image, centroids1, centroids2):
 
 def calculate_centroids(tensor):
 	tensor = tensor.float()
-	h = tensor.shape[2]
-	w = tensor.shape[3]
+	n,l,h,w = tensor.shape
+	
 	indexs_y = torch.from_numpy(np.arange(h)).float().to(tensor.device)
 	indexs_x = torch.from_numpy(np.arange(w)).float().to(tensor.device)
 	
-	center_y = tensor.mean(3) * indexs_y.view(1,1,-1)
-	center_y = center_y.mean(2, keepdim=True)
-	
-	center_x = tensor.mean(2) * indexs_y.view(1,1,-1)
-	center_x = center_x.mean(2, keepdim=True)
+	center_y = tensor.sum(3) * indexs_y.view(1,1,-1) 
+	center_y = center_y.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
+
+	center_x = tensor.sum(2) * indexs_x.view(1,1,-1)
+	center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
 
 	return torch.cat([center_x, center_y], 2)
 
