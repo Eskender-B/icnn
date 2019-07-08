@@ -10,7 +10,7 @@ import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-import os
+import shutil
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
@@ -71,10 +71,10 @@ def show_centroids(image, centroids_pred, centroids_orig):
     plt.imshow(image)
     plt.scatter(w/64*centroids_orig[:, 0], h/64*centroids_orig[:, 1], s=10, marker='x', c='r')
     plt.scatter(w/64*centroids_pred[:, 0], h/64*centroids_pred[:, 1], s=10, marker='x', c='g')
-    plt.pause(0.001)  # pause a bit so that plots are updated
+    #plt.pause(0.001)  # pause a bit so that plots are updated
 
 def calculate_centroids(tensor):
-	tensor = tensor.float()
+	tensor = tensor.float() + 1e-10
 	n,l,h,w = tensor.shape
 	indexs_y = torch.from_numpy(np.arange(h)).float().to(tensor.device)
 	indexs_x = torch.from_numpy(np.arange(w)).float().to(tensor.device)
@@ -90,17 +90,23 @@ unresized_images = [unresized_dataset[i]['image'] for i in indxs]
 
 images = torch.stack([test_dataset[i]['image'] for i in indxs]).to(device)
 orig_labels = np.array([test_dataset[i]['labels'].numpy() for i in indxs])
-orig_centroids = calculate_centroids(F.normalize(torch.from_numpy(orig_labels),1))
-orig_centroids = np.array( orig_centroids.detach().to('cpu').numpy(), np.int)
+orig_labels = F.one_hot(torch.from_numpy(orig_labels).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
+#orig_labels = F.normalize(torch.from_numpy(orig_labels), 1)
+orig_centroids = calculate_centroids(orig_labels)
+orig_centroids = np.array( orig_centroids.detach().to('cpu').numpy(),)
 
-pred_labels = F.normalize(model(images), 1)
+
+pred_labels = F.one_hot(model(images).abs().argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
+#pred_labels = F.normalize(model(images).abs(),1)
+
 centroids = calculate_centroids(pred_labels)	
-centroids = np.array( centroids.detach().to('cpu').numpy(), np.int)
+centroids = np.array( centroids.detach().to('cpu').numpy())
 
-if os.path.exists('res/'):
-	os.rmdir('res/')
-os.mkdir('res')
-for i in range(n_test):
+if shutil.os.path.exists('res/'):
+	shutil.rmtree('res/')
+shutil.os.mkdir('res')
+
+for i,idx in enumerate(indxs):
 	show_centroids(unresized_images[i], centroids[i], orig_centroids[i])
 	plt.savefig('res/stage1_image%d.jpg'%i)
 	plt.close()
