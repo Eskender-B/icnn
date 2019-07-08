@@ -84,21 +84,20 @@ def calculate_centroids(tensor):
 	center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
 	return torch.cat([center_x, center_y], 2)
 
-n_test = 4
+n_test = len(test_dataset)
 indxs = np.random.randint(len(test_dataset), size=n_test)
 unresized_images = [unresized_dataset[i]['image'] for i in indxs]
 
 images = torch.stack([test_dataset[i]['image'] for i in indxs]).to(device)
 orig_labels = np.array([test_dataset[i]['labels'].numpy() for i in indxs])
-orig_labels = F.one_hot(torch.from_numpy(orig_labels).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
-#orig_labels = F.normalize(torch.from_numpy(orig_labels), 1)
+#orig_labels = F.one_hot(torch.from_numpy(orig_labels).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
+orig_labels = F.normalize(torch.from_numpy(orig_labels), 1)
 orig_centroids = calculate_centroids(orig_labels)
 orig_centroids = np.array( orig_centroids.detach().to('cpu').numpy(),)
 
 
-pred_labels = F.one_hot(model(images).abs().argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
-#pred_labels = F.normalize(model(images).abs(),1)
-
+#pred_labels = F.one_hot(model(images).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
+pred_labels = F.softmax(model(images), 1)
 centroids = calculate_centroids(pred_labels)	
 centroids = np.array( centroids.detach().to('cpu').numpy())
 
