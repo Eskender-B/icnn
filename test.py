@@ -69,8 +69,8 @@ def show_centroids(image, centroids_pred, centroids_orig):
     """Show image with landmarks"""
     h,w,c = image.shape
     plt.imshow(image)
-    plt.scatter(w/64*centroids_orig[:, 0], h/64*centroids_orig[:, 1], s=10, marker='x', c='r')
-    plt.scatter(w/64*centroids_pred[:, 0], h/64*centroids_pred[:, 1], s=10, marker='x', c='g')
+    plt.scatter(w/64*centroids_orig[:-1, 0], h/64*centroids_orig[:-1, 1], s=10, marker='x', c='r')
+    plt.scatter(w/64*centroids_pred[:-1, 0], h/64*centroids_pred[:-1, 1], s=10, marker='x', c='g')
     #plt.pause(0.001)  # pause a bit so that plots are updated
 
 def calculate_centroids(tensor):

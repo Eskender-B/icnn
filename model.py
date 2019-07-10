@@ -13,7 +13,7 @@ class ICNN(nn.Module):
 		self.sf = 2
 		self.kernel_size = 5	# has to be odd (or need to change padding below)
 		self.last_kernel_size = 9
-		self.L = 8
+		self.L = 9
 		self.num_channel_orignal = [8*i for i in range(1, self.num_rows+1)]		# [8, 16, 24, 32]
 		self.num_channel_interlinked = shift(self.num_channel_orignal, -1, 0) + self.num_channel_orignal + shift(self.num_channel_orignal, 1, 0)
 
