@@ -55,7 +55,7 @@ class ToTensor(object):
 		# torch image: C X H X W
 		image = image.transpose((2, 0, 1))
 		return {'image': torch.from_numpy(image).float(),
-		'labels': torch.from_numpy(labels)}
+		'labels': torch.from_numpy(labels).float()}
 
 
 

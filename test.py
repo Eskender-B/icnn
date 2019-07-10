@@ -11,6 +11,7 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import shutil
+import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
@@ -27,7 +28,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
-                                               ToTensor()
+                                               ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=1)
@@ -51,13 +52,12 @@ def evaluate(model, loader, criterion):
 
 	return epoch_loss / len(loader)
 
-model = ICNN()
-criterion = nn.CrossEntropyLoss()
 
-model = model.to(device)
+criterion = nn.CrossEntropyLoss()
 criterion = criterion.to(device)
 
-model.load_state_dict(torch.load('saved-model.pth'))
+model = pickle.load(open('saved-model.pth', 'rb'))
+model = model.to(device)
 test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('test loss = %.4f' % (test_loss))
 
@@ -84,28 +84,34 @@ def calculate_centroids(tensor):
 	center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
 	return torch.cat([center_x, center_y], 2)
 
-n_test = len(test_dataset)
+n_test = 10
 indxs = np.random.randint(len(test_dataset), size=n_test)
 unresized_images = [unresized_dataset[i]['image'] for i in indxs]
 
 images = torch.stack([test_dataset[i]['image'] for i in indxs]).to(device)
 orig_labels = np.array([test_dataset[i]['labels'].numpy() for i in indxs])
 #orig_labels = F.one_hot(torch.from_numpy(orig_labels).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
-orig_labels = F.normalize(torch.from_numpy(orig_labels), 1)
+orig_labels = F.normalize(torch.from_numpy(orig_labels).to(device), 1)
 orig_centroids = calculate_centroids(orig_labels)
-orig_centroids = np.array( orig_centroids.detach().to('cpu').numpy(),)
+orig_centroids = orig_centroids.to('cpu').numpy()
 
 
 #pred_labels = F.one_hot(model(images).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
 pred_labels = F.softmax(model(images), 1)
 centroids = calculate_centroids(pred_labels)	
-centroids = np.array( centroids.detach().to('cpu').numpy())
+centroids = centroids.detach().to('cpu').numpy()
 
 if shutil.os.path.exists('res/'):
 	shutil.rmtree('res/')
 shutil.os.mkdir('res')
 
-for i,idx in enumerate(indxs):
+pred_np = pred_labels.detach().to('cpu').numpy()
+for i in range(n_test):
 	show_centroids(unresized_images[i], centroids[i], orig_centroids[i])
-	plt.savefig('res/stage1_image%d.jpg'%i)
+	plt.savefig('res/image%d.jpg'%i)
 	plt.close()
+
+	for j in range(pred_np.shape[1]):
+		plt.imshow(pred_np[i][j])
+		plt.savefig('res/image%d_lbl%d.jpg'%(i,j))
+		plt.close()

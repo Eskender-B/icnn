@@ -10,13 +10,14 @@ from torchvision import transforms, utils
 from model import ICNN
 import argparse
 from utils import LOG_INFO
+import pickle
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=10, type=int, help="Batch size to use during training.")
-parser.add_argument("--display_freq", default=1, type=int, help="Display frequency")
+parser.add_argument("--display_freq", default=10, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
-parser.add_argument("--epochs", default=10, type=float, help="Number of epochs to train")
+parser.add_argument("--epochs", default=10, type=int, help="Number of epochs to train")
 args = parser.parse_args()
 print(args)
 
@@ -50,7 +51,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
-                                               ToTensor()
+                                               ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
@@ -62,10 +63,19 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 ############ ICNN Model ############
 
 model = ICNN()
-optimizer = optim.SGD(model.parameters(), lr=args.lr)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.5)
 criterion = nn.CrossEntropyLoss()
 model = model.to(device)
 criterion = criterion.to(device)
+
+
+def weights_init(m):
+    if isinstance(m, nn.Conv2d):
+        nn.init.xavier_normal_(m.weight.data)
+        #nn.init.xavier_normal_(m.bias.data)
+
+#model.apply(weights_init)
 #####################################
 
 
@@ -109,17 +119,17 @@ def evaluate(model, loader, criterion):
 	return epoch_loss / len(loader)
 
 
-
 for epoch in range(1, args.epochs + 1):
 	train(epoch, model, train_loader, optimizer, criterion)
 	valid_loss = evaluate(model, valid_loader, criterion)
+	scheduler.step()
 	msg = '...Epoch %02d, val loss = %.4f' % (
 	epoch, valid_loss)
 	LOG_INFO(msg)
 
-torch.save(model.state_dict(), 'saved-model.pth')
+pickle.dump(model, open('saved-model.pth', 'wb'))
+model = pickle.load(open('saved-model.pth', 'rb'))
 
 
-model.load_state_dict(torch.load('saved-model.pth'))
 test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('Finally, test loss = %.4f' % (test_loss))
