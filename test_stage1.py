@@ -14,7 +14,7 @@ import shutil
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=25, type=int, help="Batch size to use during training.")
+parser.add_argument("--batch_size", default=25, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 

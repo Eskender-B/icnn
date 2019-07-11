@@ -22,7 +22,7 @@ class Rescale(object):
 		self.output_size = output_size
 
 	def __call__(self, sample):
-		image, labels = sample['image'], sample['labels']
+		image, labels, idx = sample['image'], sample['labels'], sample['index']
 
 		h, w = image.shape[:2]
 		if isinstance(self.output_size, int):
@@ -41,21 +41,22 @@ class Rescale(object):
 		for i in range(labels.shape[0]):
 			new_labels[i,:,:] = transform.resize(labels[i,:,:], (new_h, new_w))
 
-		return {'image': new_img, 'labels': new_labels}
+		return {'image': new_img, 'labels': new_labels, 'index', idx}
 
 
 class ToTensor(object):
 	"""Convert ndarrays in sample to Tensors."""
 
 	def __call__(self, sample):
-		image, labels = sample['image'], sample['labels']
+		image, labels, idx = sample['image'], sample['labels'], sample['index']
 
 		# swap color axis because
 		# numpy image: H x W x C
 		# torch image: C X H X W
 		image = image.transpose((2, 0, 1))
 		return {'image': torch.from_numpy(image).float(),
-		'labels': torch.from_numpy(labels).float()}
+		'labels': torch.from_numpy(labels).float(),
+		'index': idx}
 
 
 
@@ -87,15 +88,11 @@ class ImageDataset(Dataset):
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
 		labels = []
-		for i in range(11):
+		for i in range(2,10):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
-
-		# calculate background pixels (hair & skin & actual backround)
-		bg = labels[0]+labels[1]+labels[10]
-		labels = np.concatenate((labels[2:10] ,[bg.clip(0.0,255.0)]), axis=0) 
-
-		sample = {'image': image, 'labels': labels}
+		
+		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:
 			sample = self.transform(sample)
 		return sample
