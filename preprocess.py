@@ -88,9 +88,13 @@ class ImageDataset(Dataset):
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
 		labels = []
-		for i in range(2,10):
+		for i in range(11):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
+
+		# calculate background pixels (hair & skin & actual backround)
+		bg = labels[0]+labels[1]+labels[10]
+		labels = np.concatenate((labels[2:10] ,[bg.clip(0.0,255.0)]), axis=0) 
 		
 		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:

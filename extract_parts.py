@@ -67,7 +67,7 @@ def calculate_centroids(tensor):
   center_y = center_y.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
   center_x = tensor.sum(2) * indexs_x.view(1,1,-1)
   center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
-  return torch.cat([center_x, center_y], 2)
+  return torch.cat([center_y, center_x], 2)
 
 
 def extract_parts(loader, orig_dataset):
@@ -80,17 +80,50 @@ def extract_parts(loader, orig_dataset):
       
       orig_images = torch.Tensor([]).to(device)
       orig_labels = torch.Tensor([]).to(device)
+
       for i in indexs:
-        labels = orig_dataset[i]['labels']
-        l,h,w = img.shape
-        orig_images = torch.cat([orig_images, orig_dataset[i]['image']])
+
+        l,h,w = orig_dataset[i]['labels'].shape
+        offset_y, offset_x = (512-h)//2, (512-w)//2
+
+        image = torch.zeros(3,512,512)
+        labels = torch.zeros(l,512,512)
+        image[:,offset_y:offset_y+h, offset_x:offset_x+w] = orig_dataset[i]['image']
+        labels[:,offset_y:offset_y+h, offset_x:offset_x+w] = orig_dataset[i]['labels']
+
+        orig_images = torch.cat([orig_images, image])
         orig_labels = torch.cat([oirg_labels, labels])
 
-        # Scale centroids
-        centroids[i] *= torch.Tensor([w/64., h/64.]).to(device).view(1,2)
+        # Scale and shift centroids
+        centroids[i] =  centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) \
+                                     + torch.Tensor(offset_y, offset_x).view(1,2).to(device)
 
-      # Non-mouth parts
+      orig_images = orig_images.view(len(indexs),3,512,512)
+      orig_labels = orig_labels.view(len(indexs),l,512,512)
 
-      #left eyebrow
-      # Mouth parts
+      non_mouth_index = centroids.index_select(1, range(6)).long()
+      non_mouth_index_y = non_mouth_index[:,:,0] + torch.from_numpy(np.arange(-32,32)).view(1,1,64).to(device)
+      non_mouth_index_x = non_mouth_index[:,:,1] + torch.from_numpy(np.arange(-32,32)).view(1,1,64).to(device)
 
+      #n x p x c x h x w
+      index_y = torch.repeat_interleave(non_mouth_index_y.unsqueeze(2),3, dim=2)
+      index_x = torch.repeat_interleave(non_mouth_index_x.unsqueeze(2),3, dim=2)
+
+      #n x p x c x 64 x 64
+      non_mouth_patches = orig_images.gather(2, )
+      non_mouth_labels = 
+
+      mouth_index = centroids.index_select(1, range(6,9)).mean(dim=1).long()
+      mouth_patches =
+      mouth_labels =  
+
+
+      #### Eyebrow
+      # Left
+
+      # Right
+      # Eye
+
+      # Nose
+
+      # Mouth
