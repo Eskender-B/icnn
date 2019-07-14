@@ -41,7 +41,7 @@ class Rescale(object):
 		for i in range(labels.shape[0]):
 			new_labels[i,:,:] = transform.resize(labels[i,:,:], (new_h, new_w))
 
-		return {'image': new_img, 'labels': new_labels, 'index', idx}
+		return {'image': new_img, 'labels': new_labels, 'index': idx}
 
 
 class ToTensor(object):
