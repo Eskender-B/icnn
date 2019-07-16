@@ -59,11 +59,18 @@ class ToTensor(object):
 		'index': idx}
 
 
+class Invert(object):
+	"""Convert ndarrays in sample to Tensors."""
+
+	def __call__(self, sample):
+		image, labels, idx = sample['image'], sample['labels'], sample['index']
+		return {'image': image.flip(-1), 'labels': labels.flip(-1), 'index': idx}
+
 
 
 class ImageDataset(Dataset):
 	"""Image dataset."""
-	def __init__(self, txt_file, root_dir, transform=None):
+	def __init__(self, txt_file, root_dir, bg_indexs=set([]), transform=None):
 		"""
 		Args:
 		txt_file (string): Path to the txt file with list of image id, name.
@@ -74,6 +81,8 @@ class ImageDataset(Dataset):
 		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
+		self.bg_indexs = bg_indexs
+		self.non_bg_indexs = set(range(11)).difference(bg_indexs)
 
 	def __len__(self):
 		return len(self.name_list)
@@ -92,9 +101,12 @@ class ImageDataset(Dataset):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
 
-		# calculate background pixels (hair & skin & actual backround)
-		bg = labels[0]+labels[1]+labels[10]
-		labels = np.concatenate((labels[2:10] ,[bg.clip(0.0,255.0)]), axis=0) 
+		# calculate background pixels
+		bg = np.zeros(labels[0].shape)
+		for i in self.bg_indexs:
+			bg = bg+labels[i]
+
+		labels = np.concatenate((labels[list(self.non_bg_indexs)] ,[bg.clip(0.0,255.0)]), axis=0)
 		
 		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:

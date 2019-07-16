@@ -21,11 +21,12 @@ print(args)
 
 
 if torch.cuda.is_available():
-	device = torch.device("cuda:0")
+	device = torch.device("cuda")
 else:
 	device = torch.device("cpu")
 
-device = torch.device("cpu")
+# Uncomment if GPU size is not engough or decrease batch_size
+#device = torch.device("cpu")
 
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
@@ -83,39 +84,38 @@ def save_patches(image, labels, dataset, indexs):
   n,p,c,w,h = image.shape
   _,_,l,_,_ = labels.shape
   name_list = dataset.name_list
-  print(image.shape)
 
-  image = image.int().to('cpu').numpy().transpose([0,1,3,4,2])
-  labels = labels.int().to('cpu').numpy()
+  image = np.uint8(image.to('cpu').numpy().transpose([0,1,3,4,2]))
+  labels = np.uint8(labels.to('cpu').numpy())
 
   for i in range(n):
     # Save each patch in an image
     if p ==1:
       #mouth
       image_name = shutil.os.path.join(root_dir, dic[5], 'images', name_list[indexs[i], 1].strip() + '.jpg')
-      io.imsave(image_name, image[i][0])
+      io.imsave(image_name, image[i][0], quality=100)
 
       shutil.os.mkdir(shutil.os.path.join(root_dir, dic[5], 'labels', name_list[indexs[i], 1].strip()))
       label_name = shutil.os.path.join(root_dir, dic[5], 'labels', name_list[indexs[i], 1].strip(), name_list[indexs[i], 1].strip() + '_lbl%.2d.png')
       for k in range(l):
-        io.imsave(label_name%k, labels[i][0][k])
+        io.imsave(label_name%k, labels[i][0][k], check_contrast=False)
 
     else:
       #non-mouth
       for pp in range(p):
         image_name = shutil.os.path.join(root_dir, dic[pp], 'images', name_list[indexs[i], 1].strip() + '.jpg')
-        io.imsave(image_name, image[i][pp])
+        io.imsave(image_name, image[i][pp], quality=100)
 
         shutil.os.mkdir(shutil.os.path.join(root_dir, dic[pp], 'labels', name_list[indexs[i], 1].strip()))
         label_name = shutil.os.path.join(root_dir, dic[pp], 'labels', name_list[indexs[i], 1].strip(), name_list[indexs[i], 1].strip() + '_lbl%.2d.png')
         for k in range(l):
-          io.imsave(label_name%k, labels[i][pp][k])
+          io.imsave(label_name%k, labels[i][pp][k], check_contrast=False)
 
 
 
 
 def extract_parts(loader, orig_dataset):
-  box_size = 600
+  box_size = 1024
   with torch.no_grad():
     for batch in loader:
       labels, indexs = batch['labels'].to(device), batch['index']
@@ -232,6 +232,6 @@ for k in dic:
 
 
 # Extract and save facial parts in batchs
-#extract_parts(train_loader, unresized_train)
-#extract_parts(valid_loader, unresized_valid)
+extract_parts(train_loader, unresized_train)
+extract_parts(valid_loader, unresized_valid)
 extract_parts(test_loader, unresized_test)

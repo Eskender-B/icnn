@@ -22,13 +22,14 @@ args = parser.parse_args()
 print(args)
 
 if torch.cuda.is_available():
-	device = torch.device("cuda:0")
+	device = torch.device("cuda")
 else:
 	device = torch.device("cpu")
 
 # Load data
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor()
@@ -39,6 +40,7 @@ train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
 
 valid_dataset = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor()
@@ -49,6 +51,7 @@ valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
 
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor(),
@@ -62,7 +65,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 ####################################
 ############ ICNN Model ############
 
-model = ICNN()
+model = ICNN(output_maps=9)
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.5)
 criterion = nn.CrossEntropyLoss()

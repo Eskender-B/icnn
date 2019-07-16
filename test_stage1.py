@@ -20,12 +20,13 @@ print(args)
 
 
 if torch.cuda.is_available():
-	device = torch.device("cuda:0")
+	device = torch.device("cuda")
 else:
 	device = torch.device("cpu")
 
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor(),
@@ -35,6 +36,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 
 unresized_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=None)
 
 
