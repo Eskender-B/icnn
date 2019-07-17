@@ -15,7 +15,7 @@ import pickle
 from skimage import io
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=25, type=int, help="Batch size")
+parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
@@ -30,6 +30,7 @@ else:
 
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor()
@@ -40,6 +41,7 @@ train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
 
 valid_dataset = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor()
@@ -50,6 +52,7 @@ valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
 
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                           bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
                                                Rescale((64,64)),
                                                ToTensor(),
