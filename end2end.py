@@ -77,11 +77,14 @@ def extract_parts(indexs, centroids, orig_dataset):
   orig_images = torch.Tensor([])
   orig_labels = torch.Tensor([])
   res = {}
-
+  offsets = []
+  shapes = []
   for i,idx in enumerate(indexs):
 
     l,h,w = orig_dataset[idx]['labels'].shape
     offset_y, offset_x = (box_size-h)//2, (box_size-w)//2
+    offsets.append((offset_y, offset_x))
+    shapes.append((h,w))
 
     image = torch.zeros(3,box_size,box_size)
     labels = torch.zeros(l,box_size,box_size)
@@ -98,6 +101,8 @@ def extract_parts(indexs, centroids, orig_dataset):
 
   orig_images = orig_images.to(device).view(len(indexs),3,box_size,box_size)
   orig_labels = orig_labels.to(device).view(len(indexs),l,box_size,box_size)
+
+  orig = {'images': orig_images, 'labels':orig_labels}
 
   #################
   # Non-Mouth parts
@@ -124,7 +129,7 @@ def extract_parts(indexs, centroids, orig_dataset):
   patch_labels = torch.gather(repeated_labels, -2, index_y.unsqueeze(2).repeat_interleave(l,dim=2) )
   patch_labels = torch.gather(patch_labels, -1, index_x.unsqueeze(2).repeat_interleave(l,dim=2) )
 
-  res['mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
+  res['non-mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
 
 
   
@@ -152,29 +157,68 @@ def extract_parts(indexs, centroids, orig_dataset):
   patch_labels = torch.gather(repeated_labels, -2, index_y.unsqueeze(2).repeat_interleave(l,dim=2) )
   patch_labels = torch.gather(patch_labels, -1, index_x.unsqueeze(2).repeat_interleave(l,dim=2) )
 
-  res['non-mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
+  res['mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
 
-  return res
+  return res, centroids, orig, offsets, shapes
 
+
+def bg(labels, fg_indexes):
+  """Prepares mask labels for the desired facial part"""
+  bg_indexes = list( set(range(11)) - set(fg_indexes) )
+
+  return torch.cat( [labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device)),
+                    labels.index_select(1, torch.tensor(bg_indexes).long().to(labels.device)).sum(1).clamp(0.,255.)], 1 )
+
+
+
+def prepare_batches(parts):
+  batches = {}
+
+  # Non-mouth parts
+  patches, labels = parts['non-mouth']['patch_images'], parts['non-mouth']['patch_labels']
+
+  batches['eyebrow'] = {'image': torch.cat( [patches[:,0,:,:,:], patches[:,1,:,:,:].flip(-1) ]),
+                        'labels': torch.cat( [bg(labels[:,0,:,:,:], [2]), bg(labels[:,1,:,:,:], [3]).flip(-1) ] ) }
+
+  batches['eye'] = {'image': torch.cat( [patches[:,2,:,:,:], patches[:,3,:,:,:].flip(-1) ]),
+                    'labels': torch.cat( [bg(labels[:,2,:,:,:], [4]), bg(labels[:,3,:,:,:], [5]).flip(-1) ] ) }
+
+  batches['nose'] = {'image': patches[:,4,:,:,:],
+                     'labels': bg(labels[:,4,:,:,:], [6]) }
+
+
+  # Mouth parts
+  patches, labels = parts['non-mouth']['patch_images'], parts['non-mouth']['patch_labels']
+
+  batches['mouth'] = {'image': patches[:,0,:,:,:],
+                   'labels': bg(labels[:,0,:,:,:], [7,8,9]) }
+
+  return batches
 
 
 with torch.no_grad():
   for batch in loader:
     images, labels, indexs = batch['labels'].to(device), batch['index']
+
+    ## Calculate locations of facial parts
     pred_labels = F.softmax(model(images), 1)
     centroids = calculate_centroids(pred_labels)
 
-    res = extract_parts(indexs, centroids, orig_dataset)
+    ## Extract patches from face from their location given in centroids
+    # Get also shifted-scaled centroids, offsets and shapes 
+    parts, centroids, orig, offsets, shapes = extract_parts(indexs, centroids, orig_dataset)
 
-    # Prepare batches for facial parts
-    batchs={}
-    batchs['eyebrow'] =
-    batchs['eye'] =
-    batchs['nose'] =
-    batchs['mouth'] =
+    ## Prepare batches for facial parts
+    batches = prepare_batches(parts)
+   
+    ## Get prediction
+    pred_labels = {}
+    for name in batches:
+      pred_labels[name] = F.one_hot(models[name](batches[name]).argmax(dim=1), models[name].L)
 
-    # Get prediction
+    ## Rearrange patch results onto original image
+    orig_images, orig_labels = orig['images'], orig_labels['labels']
 
-    # Rearrange patch results onto original image
+    ## ...
 
-    # Save mask result
+    ## Save results
