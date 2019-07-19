@@ -30,7 +30,7 @@ else:
 # Load data
 def make_dataset(file, dir_name, bg_indexs=set([]), invert=False):
 	return ImageDataset(txt_file=file, root_dir='data/facial_parts/'+dir_name, bg_indexs=bg_indexs,
-                                           transform=transforms.Compose([ToTensor(), Invert()]) if invert else transforms.Compose([ToTensor()]))
+                                           transform=transforms.Compose([ToTensor(), Invert()]) if invert else ToTensor())
 
 train_datasets = {}
 valid_datasets = {}
@@ -163,8 +163,8 @@ def train_model(part_name, criterion):
 		epoch, 	part_name, valid_loss)
 		LOG_INFO(msg)
 
-	pickle.dump(model, open('saved-model-%s.pth'%part_name, 'wb'))
-	model = pickle.load(open('saved-model-%s.pth'%part_name, 'rb'))
+	pickle.dump(model, open('res/saved-model-%s.pth'%part_name, 'wb'))
+	model = pickle.load(open('res/saved-model-%s.pth'%part_name, 'rb'))
 
 	test_loss = evaluate(model, test_loader, criterion)
 	LOG_INFO('Finally, test loss (%s) = %.4f' % (part_name, test_loss))

@@ -81,8 +81,8 @@ class ImageDataset(Dataset):
 		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
-		self.bg_indexs = bg_indexs
-		self.fg_indexs = set(range(11)).difference(bg_indexs)
+		self.bg_indexs = sorted(bg_indexs)
+		self.fg_indexs = sorted(set(range(11)).difference(bg_indexs))
 
 	def __len__(self):
 		return len(self.name_list)
@@ -101,13 +101,13 @@ class ImageDataset(Dataset):
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
 
-		if self.bg_indexs != set([]):
+		if self.bg_indexs != []:
 			# calculate background pixels
 			bg = np.zeros(labels[0].shape)
 			for i in self.bg_indexs:
 				bg = bg+labels[i]
 
-			labels = np.concatenate((labels[list(self.fg_indexs)] ,[bg.clip(0.0,255.0)]), axis=0)
+			labels = np.concatenate((labels[self.fg_indexs] ,[bg.clip(0.0,255.0)]), axis=0)
 		
 		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:

@@ -130,8 +130,8 @@ for epoch in range(1, args.epochs + 1):
 	epoch, valid_loss)
 	LOG_INFO(msg)
 
-pickle.dump(model, open('saved-model.pth', 'wb'))
-model = pickle.load(open('saved-model.pth', 'rb'))
+pickle.dump(model, open('res/saved-model.pth', 'wb'))
+model = pickle.load(open('res/saved-model.pth', 'rb'))
 
 
 test_loss = evaluate(model, test_loader, criterion)

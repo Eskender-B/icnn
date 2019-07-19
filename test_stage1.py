@@ -58,7 +58,7 @@ def evaluate(model, loader, criterion):
 criterion = nn.CrossEntropyLoss()
 criterion = criterion.to(device)
 
-model = pickle.load(open('saved-model.pth', 'rb'))
+model = pickle.load(open('res/saved-model.pth', 'rb'))
 model = model.to(device)
 test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('test loss = %.4f' % (test_loss))
@@ -103,9 +103,6 @@ pred_labels = F.softmax(model(images), 1)
 centroids = calculate_centroids(pred_labels)	
 centroids = centroids.detach().to('cpu').numpy()
 
-if shutil.os.path.exists('res/'):
-	shutil.rmtree('res/')
-shutil.os.mkdir('res')
 
 pred_np = pred_labels.detach().to('cpu').numpy()
 for i in range(n_test):

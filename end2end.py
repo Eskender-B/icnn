@@ -14,7 +14,7 @@ import shutil
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=25, type=int, help="Batch size")
+parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
@@ -35,27 +35,25 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                        shuffle=True, num_workers=1)
+                        shuffle=True, num_workers=4)
 
 unresized_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
-                                           transform=None)
+                                           transform=ToTensor())
 
 
 
 #################################################################
 ######################### Load models ###########################
 
-model = pickle.load(open('saved-model.pth', 'rb'))
+model = pickle.load(open('res/saved-model.pth', 'rb'))
 model = model.to(device)
-test_loss = evaluate(model, test_loader, criterion)
-LOG_INFO('test loss (localizer) = %.4f' % (test_loss))
-
 
 names = ['eyebrow', 'eye', 'nose', 'mouth']
 models={}
 for name in names:
-  models[name] = pickle.load(open('saved-model-%s.pth'%name, 'rb'))
+  models[name] = pickle.load(open('res/saved-model-%s.pth'%name, 'rb'))
+  models[name].to(device)
 
 
 #################################################################
@@ -76,6 +74,7 @@ def calculate_centroids(tensor):
 def extract_parts(indexs, centroids, orig_dataset):
   orig_images = torch.Tensor([])
   orig_labels = torch.Tensor([])
+  box_size = 1024
   res = {}
   offsets = []
   shapes = []
@@ -129,7 +128,7 @@ def extract_parts(indexs, centroids, orig_dataset):
   patch_labels = torch.gather(repeated_labels, -2, index_y.unsqueeze(2).repeat_interleave(l,dim=2) )
   patch_labels = torch.gather(patch_labels, -1, index_x.unsqueeze(2).repeat_interleave(l,dim=2) )
 
-  res['non-mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
+  res['non-mouth'] = {'patch_images': patch_images, 'patch_labels': patch_labels}
 
 
   
@@ -157,9 +156,9 @@ def extract_parts(indexs, centroids, orig_dataset):
   patch_labels = torch.gather(repeated_labels, -2, index_y.unsqueeze(2).repeat_interleave(l,dim=2) )
   patch_labels = torch.gather(patch_labels, -1, index_x.unsqueeze(2).repeat_interleave(l,dim=2) )
 
-  res['mouth'] = {'patch_images': patch_images, 'labels': patch_labels}
+  res['mouth'] = {'patch_images': patch_images, 'patch_labels': patch_labels}
 
-  return res, centroids, orig, offsets, shapes
+  return res, centroids.long(), orig, np.array(offsets), np.array(shapes)
 
 
 def bg(labels, fg_indexes):
@@ -167,7 +166,7 @@ def bg(labels, fg_indexes):
   bg_indexes = list( set(range(11)) - set(fg_indexes) )
 
   return torch.cat( [labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device)),
-                    labels.index_select(1, torch.tensor(bg_indexes).long().to(labels.device)).sum(1).clamp(0.,255.)], 1 )
+                    labels.index_select(1, torch.tensor(bg_indexes).long().to(labels.device)).sum(1, keepdim=True).clamp(0.,255.)], 1 )
 
 
 
@@ -188,7 +187,7 @@ def prepare_batches(parts):
 
 
   # Mouth parts
-  patches, labels = parts['non-mouth']['patch_images'], parts['non-mouth']['patch_labels']
+  patches, labels = parts['mouth']['patch_images'], parts['mouth']['patch_labels']
 
   batches['mouth'] = {'image': patches[:,0,:,:,:],
                    'labels': bg(labels[:,0,:,:,:], [7,8,9]) }
@@ -198,13 +197,14 @@ def prepare_batches(parts):
 
 def combine_results(pred_labels, orig, centroids):
 
-  colors = torch.tensor([[255,0,0], [255,0,0], [0,0,255], [0,0,255], [128,0,0], [0,128,0], [128,0,128], [255,0,255]]).to(pred_labels.device)
-  orig_images, orig_labels = orig['images'], F.one_hot(orig['labels'].argmax(dim=1), 11).transpose(3,1).transpose(2,3)
-  orig_mask = orig_labels.index_select(1, torch.tensor(range(2,10))).unsqueeze(-1) * colors.view(1,8,1,1,3)
+  colors = torch.tensor([[255,0,0], [255,0,0], [0,0,255], [0,0,255], [255,255,0], [0,255,255], [0,255,0], [255,0,255]]).to(device)
+  orig_images, orig_labels = orig['images'].transpose(1,3).transpose(1,2), F.one_hot(orig['labels'].argmax(dim=1), 11).transpose(3,1).transpose(2,3)
+  orig_mask = orig_labels.index_select(1, torch.tensor(range(2,10)).to(device)).unsqueeze(-1) * colors.view(1,8,1,1,3)
   orig_mask = orig_mask.sum(1) # May need to fix here
 
 
   # parts
+  batch_size = args.batch_size
   eyebrow1, eyebrow2 = pred_labels['eyebrow'][0:batch_size,0,:,:], pred_labels['eyebrow'][batch_size:,0,:,:].flip(-1)
   eye1, eye2 = pred_labels['eye'][0:batch_size,0,:,:], pred_labels['eye'][batch_size:,0,:,:].flip(-1)
   nose = pred_labels['nose'][:,0,:,:]
@@ -212,50 +212,71 @@ def combine_results(pred_labels, orig, centroids):
   inner_mouth = pred_labels['mouth'][:,1,:,:]
   lower_lip = pred_labels['mouth'][:,2,:,:]
 
-  centroids = centroids.numpy()
-  pred_mask = torch.zeros_like(orig_images)
+  centroids = centroids.to('cpu').numpy()
+  pred_mask = torch.zeros_like(orig_images, dtype=torch.long)
 
   for i in range(batch_size):
     # Non-mouth parts
     y, x = centroids[i][0]
-    pred_mask[i,:,y-32:y+32,x-32:x+32] += eyebrow1[i].unsqueeze(-1) * colors[0].view(1,1,3)
+    pred_mask[i,y-32:y+32,x-32:x+32,:] += eyebrow1[i].unsqueeze(-1) * colors[0].view(1,1,3)
 
     y, x = centroids[i][1]
-    pred_mask[i,:,y-32:y+32,x-32:x+32] += eyebrow2[i].unsqueeze(-1) * colors[1].view(1,1,3)
+    pred_mask[i,y-32:y+32,x-32:x+32,:] += eyebrow2[i].unsqueeze(-1) * colors[1].view(1,1,3)
 
     y, x = centroids[i][2]
-    pred_mask[i,:,y-32:y+32,x-32:x+32] += eye1[i].unsqueeze(-1) * colors[2].view(1,1,3)
+    pred_mask[i,y-32:y+32,x-32:x+32,:] += eye1[i].unsqueeze(-1) * colors[2].view(1,1,3)
 
     y, x = centroids[i][3]
-    pred_mask[i,:,y-32:y+32,x-32:x+32] += eye2[i].unsqueeze(-1) * colors[3].view(1,1,3)
+    pred_mask[i,y-32:y+32,x-32:x+32,:] += eye2[i].unsqueeze(-1) * colors[3].view(1,1,3)
 
     y, x = centroids[i][4]
-    pred_mask[i,:,y-32:y+32,x-32:x+32] += nose[i].unsqueeze(-1) * colors[4].view(1,1,3)
+    pred_mask[i,y-32:y+32,x-32:x+32,:] += nose[i].unsqueeze(-1) * colors[4].view(1,1,3)
 
 
     # Mouth parts
     y, x = centroids[i][5]
-    pred_mask[i,:,y-40:y+40,x-40:x+40] += upper_lip[i].unsqueeze(-1) * colors[5].view(1,1,3)
+    pred_mask[i,y-40:y+40,x-40:x+40,:] += upper_lip[i].unsqueeze(-1) * colors[5].view(1,1,3)
 
     y, x = centroids[i][6]
-    pred_mask[i,:,y-40:y+40,x-40:x+40] += inner_mouth[i].unsqueeze(-1) * colors[6].view(1,1,3)
+    pred_mask[i,y-40:y+40,x-40:x+40,:] += inner_mouth[i].unsqueeze(-1) * colors[6].view(1,1,3)
 
     y, x = centroids[i][7]
-    pred_mask[i,:,y-40:y+40,x-40:x+40] += lower_lip[i].unsqueeze(-1) * colors[7].view(1,1,3)
+    pred_mask[i,y-40:y+40,x-40:x+40,:] += lower_lip[i].unsqueeze(-1) * colors[7].view(1,1,3)
 
-  alpha = 0.5
+  alpha = 0.3
   pred_mask = pred_mask.float()
   orig_mask = orig_mask.float()
-  ground_result = torch.where(orig_mask==torch.tensor([0., 0., 0.]), orig_images, alpha*orig_images + (1.-alpha)*orig_mask)
-  pred_result = torch.where(pred_mask==torch.tensor([0., 0., 0.]), orig_images, alpha*orig_images + (1.-alpha)*pred_mask)  
+  ground_result = torch.where(orig_mask==torch.tensor([0., 0., 0.]).to(device), orig_images, alpha*orig_images + (1.-alpha)*orig_mask)
+  pred_result = torch.where(pred_mask==torch.tensor([0., 0., 0.]).to(device), orig_images, alpha*orig_images + (1.-alpha)*pred_mask)  
 
   return ground_result, pred_result
+
+def save_results(ground, pred, indexs, offsets, shapes):
+
+  ground = np.uint8(ground.clamp(0., 255.).to('cpu').numpy())
+  pred = np.uint8(pred.detach().clamp(0.,255.).to('cpu').numpy())
+
+  for i,idx in enumerate(indexs):
+    y1,x1 = offsets[i]
+    y2,x2 = offsets[i] + shapes[i]
+    plt.figure(figsize=(12.8, 9.6))
+
+    ax = plt.subplot(1, 2, 1)
+    ax.set_title("Ground Truth")
+    plt.imshow(ground[i,y1:y2,x1:x2,:])
+
+    ax = plt.subplot(1, 2, 2)
+    ax.set_title("Predicted")
+    plt.imshow(pred[i,y1:y2,x1:x2,:])
+
+    plt.savefig('res/'+unresized_dataset.name_list[idx, 1].strip() + '.jpg')
+    plt.close()
 
 
 
 with torch.no_grad():
-  for batch in loader:
-    images, labels, indexs = batch['labels'].to(device), batch['index']
+  for batch in test_loader:
+    images, labels, indexs = batch['image'].to(device), batch['labels'].to(device), batch['index']
 
     ## Calculate locations of facial parts
     pred_labels = F.softmax(model(images), 1)
@@ -271,11 +292,11 @@ with torch.no_grad():
     ## Get prediction
     pred_labels = {}
     for name in batches:
-      pred_labels[name] = F.one_hot(models[name](batches[name]).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
+      pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
 
     ## Rearrange patch results onto original image
     ground_result, pred_result = combine_results(pred_labels, orig, centroids)
 
-    ## ...
-
     ## Save results
+    save_results(ground_result, pred_result, indexs, offsets, shapes)
+    print("Processed %d images"%args.batch_size)
