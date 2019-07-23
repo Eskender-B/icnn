@@ -165,8 +165,10 @@ def bg(labels, fg_indexes):
   """Prepares mask labels for the desired facial part"""
   bg_indexes = list( set(range(11)) - set(fg_indexes) )
 
-  return torch.cat( [labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device)),
+  res = torch.cat( [labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device)),
                     labels.index_select(1, torch.tensor(bg_indexes).long().to(labels.device)).sum(1, keepdim=True).clamp(0.,255.)], 1 )
+
+  return F.one_hot(res.argmax(dim=1), len(fg_indexes)+1).transpose(3,1).transpose(2,3)
 
 
 
@@ -197,7 +199,7 @@ def prepare_batches(parts):
 
 def combine_results(pred_labels, orig, centroids):
 
-  colors = torch.tensor([[255,0,0], [255,0,0], [0,0,255], [0,0,255], [255,255,0], [0,255,255], [0,255,0], [255,0,255]]).to(device)
+  colors = torch.tensor([[255,0,0], [255,0,0], [0,0,255], [0,0,255], [255,165,0], [0,255,255], [0,255,0], [255,0,255]]).to(device)
   orig_images, orig_labels = orig['images'].transpose(1,3).transpose(1,2), F.one_hot(orig['labels'].argmax(dim=1), 11).transpose(3,1).transpose(2,3)
   orig_mask = orig_labels.index_select(1, torch.tensor(range(2,10)).to(device)).unsqueeze(-1) * colors.view(1,8,1,1,3)
   orig_mask = orig_mask.sum(1) # May need to fix here
@@ -243,7 +245,7 @@ def combine_results(pred_labels, orig, centroids):
     y, x = centroids[i][7]
     pred_mask[i,y-40:y+40,x-40:x+40,:] += lower_lip[i].unsqueeze(-1) * colors[7].view(1,1,3)
 
-  alpha = 0.3
+  alpha = 0.1
   pred_mask = pred_mask.float()
   orig_mask = orig_mask.float()
   ground_result = torch.where(orig_mask==torch.tensor([0., 0., 0.]).to(device), orig_images, alpha*orig_images + (1.-alpha)*orig_mask)
@@ -273,6 +275,54 @@ def save_results(ground, pred, indexs, offsets, shapes):
     plt.close()
 
 
+TP = {'eyebrow':0, 'eye':0, 'nose':0, 'u_lip':0, 'i_mouth':0, 'l_lip':0}
+FP = {'eyebrow':0, 'eye':0, 'nose':0, 'u_lip':0, 'i_mouth':0, 'l_lip':0}
+TN = {'eyebrow':0, 'eye':0, 'nose':0, 'u_lip':0, 'i_mouth':0, 'l_lip':0}
+FN = {'eyebrow':0, 'eye':0, 'nose':0, 'u_lip':0, 'i_mouth':0, 'l_lip':0}
+
+def calculate_F1(batches, pred_labels):
+
+  for name in ['eyebrow', 'eye', 'nose']:
+    TP[name]+= (batches[name]['labels'][:,0,:,:] * pred_labels[name][:,0,:,:]).sum().tolist()
+    FP[name]+= (batches[name]['labels'][:,1,:,:] * pred_labels[name][:,0,:,:]).sum().tolist()
+    TN[name]+= (batches[name]['labels'][:,1,:,:] * pred_labels[name][:,1,:,:]).sum().tolist()
+    FN[name]+= (batches[name]['labels'][:,0,:,:] * pred_labels[name][:,1,:,:]).sum().tolist()
+
+  ground = torch.cat( [batches['mouth']['labels'].index_select(1, torch.tensor([0]).to(device)), batches['mouth']['labels'].index_select(1, torch.tensor([1,2,3]).to(device)).sum(1, keepdim=True)], 1)
+  pred = torch.cat( [pred_labels['mouth'].index_select(1, torch.tensor([0]).to(device)), pred_labels['mouth'].index_select(1, torch.tensor([1,2,3]).to(device)).sum(1, keepdim=True)], 1)
+  TP['u_lip']+= (ground[:,0,:,:] * pred[:,0,:,:]).sum().tolist()
+  FP['u_lip']+= (ground[:,1,:,:] * pred[:,0,:,:]).sum().tolist()
+  TN['u_lip']+= (ground[:,1,:,:] * pred[:,1,:,:]).sum().tolist()
+  FN['u_lip']+= (ground[:,0,:,:] * pred[:,1,:,:]).sum().tolist()
+
+  ground = torch.cat( [batches['mouth']['labels'].index_select(1, torch.tensor([1]).to(device)), batches['mouth']['labels'].index_select(1, torch.tensor([0,2,3]).to(device)).sum(1, keepdim=True)], 1)
+  pred = torch.cat( [pred_labels['mouth'].index_select(1, torch.tensor([1]).to(device)), pred_labels['mouth'].index_select(1, torch.tensor([0,2,3]).to(device)).sum(1, keepdim=True)], 1)
+  TP['i_mouth']+= (ground[:,0,:,:] * pred[:,0,:,:]).sum().tolist()
+  FP['i_mouth']+= (ground[:,1,:,:] * pred[:,0,:,:]).sum().tolist()
+  TN['i_mouth']+= (ground[:,1,:,:] * pred[:,1,:,:]).sum().tolist()
+  FN['i_mouth']+= (ground[:,0,:,:] * pred[:,1,:,:]).sum().tolist()
+
+  ground = torch.cat( [batches['mouth']['labels'].index_select(1, torch.tensor([2]).to(device)), batches['mouth']['labels'].index_select(1, torch.tensor([0,1,3]).to(device)).sum(1, keepdim=True)], 1)
+  pred = torch.cat( [pred_labels['mouth'].index_select(1, torch.tensor([2]).to(device)), pred_labels['mouth'].index_select(1, torch.tensor([0,1,3]).to(device)).sum(1, keepdim=True)], 1)
+  TP['l_lip']+= (ground[:,0,:,:] * pred[:,0,:,:]).sum().tolist()
+  FP['l_lip']+= (ground[:,1,:,:] * pred[:,0,:,:]).sum().tolist()
+  TN['l_lip']+= (ground[:,1,:,:] * pred[:,1,:,:]).sum().tolist()
+  FN['l_lip']+= (ground[:,0,:,:] * pred[:,1,:,:]).sum().tolist()
+
+
+def show_F1():
+  F1 = {}
+  PRECISION = {}
+  RECALL = {}
+  for key in TP:
+    PRECISION[key] = float(TP[key]) / (TP[key] + FP[key])
+    RECALL[key] = float(TP[key]) / (TP[key] + FN[key])
+    F1[key] = 2.*PRECISION[key]*RECALL[key]/(PRECISION[key]+RECALL[key])
+
+  print("\n\n", "PART ", "F1-MEASURE ", "PRECISION ", "RECALL")
+  for k in F1:
+    print("%s\t"%k, "%.4f\t"%F1[k], "%.4f\t"%PRECISION[k], "%.4f\t"%RECALL[k])
+
 
 with torch.no_grad():
   for batch in test_loader:
@@ -294,9 +344,15 @@ with torch.no_grad():
     for name in batches:
       pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
 
+    ## Update F1-measure stat for this batch
+    calculate_F1(batches, pred_labels)
+
     ## Rearrange patch results onto original image
     ground_result, pred_result = combine_results(pred_labels, orig, centroids)
 
     ## Save results
     save_results(ground_result, pred_result, indexs, offsets, shapes)
     print("Processed %d images"%args.batch_size)
+
+## Show stats
+show_F1()
