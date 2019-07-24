@@ -14,7 +14,7 @@ import shutil
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=25, type=int, help="Batch size")
+parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
@@ -86,31 +86,61 @@ def calculate_centroids(tensor):
 	center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
 	return torch.cat([center_x, center_y], 2)
 
-n_test = 10
-indxs = np.random.randint(len(test_dataset), size=n_test)
-unresized_images = [unresized_dataset[i]['image'] for i in indxs]
 
-images = torch.stack([test_dataset[i]['image'] for i in indxs]).to(device)
-orig_labels = np.array([test_dataset[i]['labels'].numpy() for i in indxs])
-#orig_labels = F.one_hot(torch.from_numpy(orig_labels).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
-orig_labels = F.normalize(torch.from_numpy(orig_labels).to(device), 1)
-orig_centroids = calculate_centroids(orig_labels)
-orig_centroids = orig_centroids.to('cpu').numpy()
+dist_error = np.zeros(9) # For each face part, last is background
+count=0
+def update_error(pred_centroids, orig_centroids):
+	global dist_error, count
+	count+= pred_centroids.shape[0]
+	dist_error += torch.pow(pred_centroids - orig_centroids, 2).sum(dim=2).sqrt().sum(dim=0).to('cpu').numpy()
 
 
-#pred_labels = F.one_hot(model(images).argmax(dim=1), model.L).transpose(3,1).transpose(2,3)
-pred_labels = F.softmax(model(images), 1)
-centroids = calculate_centroids(pred_labels)	
-centroids = centroids.detach().to('cpu').numpy()
+def show_error():
+	global dist_error
+	dist_error /=count
+	parts = ['eyebrow1', 'eyebrow2', 'eye1', 'eye2', 'nose', 'mouth']
+	
+	print("\n\nDistance Error in 64 X 64 image (in pixels) ... ")
+	for i in range(len(parts)-1):
+		print(parts[i], "%.2f pixels"%dist_error[i])
+	print(parts[-1], "%.2f pixels"%dist_error[-3:].mean())
+
+	print("Total Error: %.2f"%dist_error.mean())
 
 
-pred_np = pred_labels.detach().to('cpu').numpy()
-for i in range(n_test):
-	show_centroids(unresized_images[i], centroids[i], orig_centroids[i])
-	plt.savefig('res/image%d.jpg'%i)
-	plt.close()
+def save_results(indexs, pred_centroids, orig_centroids):
+	pred_centroids = pred_centroids.detach().to('cpu').numpy()
+	orig_centroids = orig_centroids.to('cpu').numpy()
 
-	for j in range(pred_np.shape[1]):
-		plt.imshow(pred_np[i][j])
-		plt.savefig('res/image%d_lbl%d.jpg'%(i,j))
+	for i,idx in enumerate(indexs):
+		img = unresized_dataset[idx]['image']
+		h,w,c = img.shape
+		plt.imshow(img)
+
+		plt.scatter(w/64*orig_centroids[i,:-1, 0], h/64*orig_centroids[i,:-1, 1], s=10, marker='x', c='r', label='Ground Truth')
+		plt.scatter(w/64*pred_centroids[i,:-1, 0], h/64*pred_centroids[i,:-1, 1], s=10, marker='x', c='g', label='Predicted')
+
+		plt.legend()
+		plt.savefig('res/'+unresized_dataset.name_list[idx, 1].strip() + '_loc.jpg')
 		plt.close()
+
+
+with torch.no_grad():
+	for batch in test_loader:
+		images, labels, indexs = batch['image'].to(device), batch['labels'].to(device), batch['index']
+
+		# Original Centroids
+		orig_labels = F.normalize(labels, 1)
+		orig_centroids = calculate_centroids(orig_labels)
+
+		# Predicted Centroids
+		pred_labels = F.softmax(model(images), 1)
+		pred_centroids = calculate_centroids(pred_labels)	
+
+		# Update error stat
+		update_error(pred_centroids, orig_centroids)
+
+		# Save results
+		save_results(indexs, pred_centroids, orig_centroids)
+
+show_error()
