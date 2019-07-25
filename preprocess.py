@@ -17,26 +17,42 @@ class DataArg(object):
 
 		np.random.seed(datetime.now().microsecond)
 		Hshift = np.random.randint(-10,11)
-		Vshitf = np.random.randint(-10,11)
+		Vshift = np.random.randint(-10,11)
 		angle = np.random.random()*30 - 15
 		scale = np.random.random()*(1.1-0.9) + 0.9
 
 		h,w,c = image.shape
 		h,w = int(scale*h), int(scale*w)
-		
-		# Scale
-		image = transform.resize(image, (h,w))
-		new_labels = np.zeros([labels.shape[0], new_h, new_w], dtype=labels.dtype)
-		for i in range(labels.shape[0]):
-			new_labels[i,:,:] = transform.resize(labels[i,:,:], (h, w))
+		labels = labels.transpose(1,2,0) # process all labels in one go
+
+		## Scale
+		#image = transform.resize(image, (h,w))
+		#labels = transform.resize(labels, (h,w))
+
+		## Rotate
+		image = transform.rotate(image, angle)
+		labels = transform.rotate(labels, angle)
+
+		## Shift
+		#image = np.roll(image, [Vshift, Hshift], [0,1] )
+		#labels = np.roll(labels, [Vshift, Hshift], [0,1] )
+
+		if Vshift>0:
+			image = np.pad(image[0:-Vshift,:,:], ((Vshift,0),(0,0),(0,0)), mode='constant')
+			labels = np.pad(labels[0:-Vshift,:,:], ((Vshift,0),(0,0),(0,0)), mode='constant')
+		else:
+			image = np.pad(image[-Vshift:,:,:], ((0,-Vshift),(0,0),(0,0)), mode='constant')
+			labels = np.pad(labels[-Vshift:,:,:], ((0,-Vshift),(0,0),(0,0)), mode='constant')
+
+		if Hshift>0:
+			image = np.pad(image[:,0:-Hshift,:], ((0,0),(Hshift,0),(0,0)), mode='constant')
+			labels = np.pad(labels[:,0:-Hshift,:], ((0,0),(Hshift,0),(0,0)), mode='constant')
+		else:
+			image = np.pad(image[:,-Hshift:,:], ((0,0),(0,-Hshift),(0,0)), mode='constant')
+			labels = np.pad(labels[:,-Hshift:,:], ((0,0),(0,-Hshift),(0,0)), mode='constant')
 
 
-		# Rotate
-		# Shift
-
-
-
-		
+		labels = labels.transpose(2,0,1) # Rearrange labels back
 
 		return {'image': image,	'labels': labels, 'index': idx}
 
@@ -69,10 +85,7 @@ class Rescale(object):
 		new_h, new_w = int(new_h), int(new_w)
 
 		new_img = transform.resize(image, (new_h, new_w))
-		new_labels = np.zeros([labels.shape[0], new_h, new_w], dtype=labels.dtype)
-
-		for i in range(labels.shape[0]):
-			new_labels[i,:,:] = transform.resize(labels[i,:,:], (new_h, new_w))
+		new_labels = transform.resize(labels.transpose(1,2,0), (new_h,new_w)).transpose(2,0,1)
 
 		return {'image': new_img, 'labels': new_labels, 'index': idx}
 

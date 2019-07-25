@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
-from preprocess import Rescale, ToTensor, ImageDataset, Invert
+from preprocess import Rescale, ToTensor, ImageDataset, Invert, DataArg
 from torch.utils.data import DataLoader, ConcatDataset
 from torchvision import transforms, utils
 from model import ICNN
@@ -28,45 +28,45 @@ else:
 
 
 # Load data
-def make_dataset(file, dir_name, bg_indexs=set([]), invert=False):
+def make_dataset(file, dir_name, trans, bg_indexs=set([])):
 	return ImageDataset(txt_file=file, root_dir='data/facial_parts/'+dir_name, bg_indexs=bg_indexs,
-                                           transform=transforms.Compose([ToTensor(), Invert()]) if invert else ToTensor())
+                                           transform=transforms.Compose(trans))                                           	
 
 train_datasets = {}
 valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', set(range(11)).difference([2])), 
-										   make_dataset('exemplars.txt', 'eyebrow2', set(range(11)).difference([3]), invert=True)])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', bg_indexs=set(range(11)).difference([2]), trans=[DataArg(),ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', bg_indexs=set(range(11)).difference([3]), trans=[DataArg(),ToTensor(), Invert()])])
 
-train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', set(range(11)).difference([4])), 
-									make_dataset('exemplars.txt', 'eye2', set(range(11)).difference([5]), invert=True)])
+train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', bg_indexs=set(range(11)).difference([4]), trans=[DataArg(),ToTensor()]), 
+									make_dataset('exemplars.txt', 'eye2', bg_indexs=set(range(11)).difference([5]), trans=[DataArg(),ToTensor(), Invert()])])
 
-train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', set(range(11)).difference([6]))
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', set(range(11)).difference([7,8,9]))
+train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', bg_indexs=set(range(11)).difference([6]), trans=[DataArg(),ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', bg_indexs=set(range(11)).difference([7,8,9]), trans=[DataArg(),ToTensor()])
 
 
 ## Validation set
-valid_datasets['eyebrow'] = ConcatDataset([make_dataset('tuning.txt', 'eyebrow1', set(range(11)).difference([2])), 
-										   make_dataset('tuning.txt', 'eyebrow2', set(range(11)).difference([3]), invert=True)])
+valid_datasets['eyebrow'] = ConcatDataset([make_dataset('tuning.txt', 'eyebrow1', bg_indexs=set(range(11)).difference([2]), trans=[ToTensor()]), 
+										   make_dataset('tuning.txt', 'eyebrow2', bg_indexs=set(range(11)).difference([3]), trans=[ToTensor(), Invert()])])
 
-valid_datasets['eye'] = ConcatDataset([make_dataset('tuning.txt', 'eye1', set(range(11)).difference([4])), 
-									make_dataset('tuning.txt', 'eye2', set(range(11)).difference([5]), invert=True)])
+valid_datasets['eye'] = ConcatDataset([make_dataset('tuning.txt', 'eye1', bg_indexs=set(range(11)).difference([4]), trans=[ToTensor()]), 
+									make_dataset('tuning.txt', 'eye2', bg_indexs=set(range(11)).difference([5]), trans=[ToTensor(), Invert()])])
 
-valid_datasets['nose'] = make_dataset('tuning.txt', 'nose', set(range(11)).difference([6]))
-valid_datasets['mouth'] = make_dataset('tuning.txt', 'mouth', set(range(11)).difference([7,8,9]))
+valid_datasets['nose'] = make_dataset('tuning.txt', 'nose', bg_indexs=set(range(11)).difference([6]), trans=[ToTensor()])
+valid_datasets['mouth'] = make_dataset('tuning.txt', 'mouth', bg_indexs=set(range(11)).difference([7,8,9]), trans=[ToTensor()])
 
 
 ## Testing set
-test_datasets['eyebrow'] = ConcatDataset([make_dataset('testing.txt', 'eyebrow1', set(range(11)).difference([2])), 
-										   make_dataset('testing.txt', 'eyebrow2', set(range(11)).difference([3]), invert=True)])
+test_datasets['eyebrow'] = ConcatDataset([make_dataset('testing.txt', 'eyebrow1', bg_indexs=set(range(11)).difference([2]), trans=[ToTensor()]), 
+										   make_dataset('testing.txt', 'eyebrow2', bg_indexs=set(range(11)).difference([3]), trans=[ToTensor(), Invert()])])
 
-test_datasets['eye'] = ConcatDataset([make_dataset('testing.txt', 'eye1', set(range(11)).difference([4])), 
-									make_dataset('testing.txt', 'eye2', set(range(11)).difference([5]), invert=True)])
+test_datasets['eye'] = ConcatDataset([make_dataset('testing.txt', 'eye1', bg_indexs=set(range(11)).difference([4]), trans=[ToTensor()]), 
+									make_dataset('testing.txt', 'eye2', bg_indexs=set(range(11)).difference([5]), trans=[ToTensor(), Invert()])])
 
-test_datasets['nose'] = make_dataset('testing.txt', 'nose', set(range(11)).difference([6]))
-test_datasets['mouth'] = make_dataset('testing.txt', 'mouth', set(range(11)).difference([7,8,9]))
+test_datasets['nose'] = make_dataset('testing.txt', 'nose', bg_indexs=set(range(11)).difference([6]), trans=[ToTensor()])
+test_datasets['mouth'] = make_dataset('testing.txt', 'mouth', bg_indexs=set(range(11)).difference([7,8,9]), trans=[ToTensor()])
 
 
 

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from model import ICNN
 from utils import LOG_INFO
-from preprocess import Rescale, ToTensor, ImageDataset
+from preprocess import Rescale, ToTensor, ImageDataset, DataArg
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
 import argparse

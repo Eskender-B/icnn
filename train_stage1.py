@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
-from preprocess import Rescale, ToTensor, ImageDataset
+from preprocess import Rescale, ToTensor, ImageDataset, DataArg
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
 from model import ICNN
@@ -31,6 +31,7 @@ train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
+                                           	   DataArg(),
                                                Rescale((64,64)),
                                                ToTensor()
                                            ]))
