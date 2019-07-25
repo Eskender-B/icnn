@@ -6,6 +6,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+from datetime import datetime
+
+
+class DataArg(object):
+	"""Data Argumentation"""
+
+	def __call__(self, sample):
+		image, labels, idx = sample['image'], sample['labels'], sample['index']
+
+		np.random.seed(datetime.now().microsecond)
+		Hshift = np.random.randint(-10,11)
+		Vshitf = np.random.randint(-10,11)
+		angle = np.random.random()*30 - 15
+		scale = np.random.random()*(1.1-0.9) + 0.9
+
+		h,w,c = image.shape
+		h,w = int(scale*h), int(scale*w)
+		
+		# Scale
+		image = transform.resize(image, (h,w))
+		new_labels = np.zeros([labels.shape[0], new_h, new_w], dtype=labels.dtype)
+		for i in range(labels.shape[0]):
+			new_labels[i,:,:] = transform.resize(labels[i,:,:], (h, w))
+
+
+		# Rotate
+		# Shift
+
+
+
+		
+
+		return {'image': image,	'labels': labels, 'index': idx}
 
 
 class Rescale(object):
@@ -59,8 +92,9 @@ class ToTensor(object):
 		'index': idx}
 
 
+
 class Invert(object):
-	"""Convert ndarrays in sample to Tensors."""
+	"""Flip image left to right"""
 
 	def __call__(self, sample):
 		image, labels, idx = sample['image'], sample['labels'], sample['index']
