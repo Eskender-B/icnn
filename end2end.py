@@ -18,15 +18,13 @@ parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
-
 if torch.cuda.is_available():
-	device = torch.device("cuda")
+  device = torch.device("cuda")
 else:
-	device = torch.device("cpu")
+  device = torch.device("cpu")
 
 
-#################################################################
-######################### Load test data ########################
+## Load test data 
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
@@ -42,10 +40,7 @@ unresized_dataset = ImageDataset(txt_file='testing.txt',
                                            transform=ToTensor())
 
 
-
-#################################################################
-######################### Load models ###########################
-
+## Load models
 model = pickle.load(open('res/saved-model.pth', 'rb'))
 model = model.to(device)
 
@@ -57,7 +52,7 @@ for name in names:
 
 
 #################################################################
-############### Calculate centroid and extract_parts ############
+############### Helper functions ################################
 
 def calculate_centroids(tensor):
   tensor = tensor.float() + 1e-10
@@ -206,7 +201,7 @@ def combine_results(pred_labels, orig, centroids):
 
 
   # parts
-  batch_size = args.batch_size
+  batch_size = pred_labels['nose'].shape[0]
   eyebrow1, eyebrow2 = pred_labels['eyebrow'][0:batch_size,0,:,:], pred_labels['eyebrow'][batch_size:,0,:,:].flip(-1)
   eye1, eye2 = pred_labels['eye'][0:batch_size,0,:,:], pred_labels['eye'][batch_size:,0,:,:].flip(-1)
   nose = pred_labels['nose'][:,0,:,:]
@@ -324,35 +319,43 @@ def show_F1():
     print("%s\t"%k, "%.4f\t"%F1[k], "%.4f\t"%PRECISION[k], "%.4f\t"%RECALL[k])
 
 
-with torch.no_grad():
-  for batch in test_loader:
-    images, labels, indexs = batch['image'].to(device), batch['labels'].to(device), batch['index']
 
-    ## Calculate locations of facial parts
-    pred_labels = F.softmax(model(images), 1)
-    centroids = calculate_centroids(pred_labels)
+#############################################
+################## Main #####################
+def main():
 
-    ## Extract patches from face from their location given in centroids
-    # Get also shift-scaled centroids, offsets and shapes 
-    parts, centroids, orig, offsets, shapes = extract_parts(indexs, centroids, unresized_dataset)
+  with torch.no_grad():
+    for batch in test_loader:
+      images, labels, indexs = batch['image'].to(device), batch['labels'].to(device), batch['index']
 
-    ## Prepare batches for facial parts
-    batches = prepare_batches(parts)
-   
-    ## Get prediction
-    pred_labels = {}
-    for name in batches:
-      pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
+      ## Calculate locations of facial parts from stage1
+      pred_labels = F.softmax(model(images), 1)
+      centroids = calculate_centroids(pred_labels)
 
-    ## Update F1-measure stat for this batch
-    calculate_F1(batches, pred_labels)
+      ## Extract patches from face from their location given in centroids
+      # Get also shift-scaled centroids, offsets and shapes 
+      parts, centroids, orig, offsets, shapes = extract_parts(indexs, centroids, unresized_dataset)
 
-    ## Rearrange patch results onto original image
-    ground_result, pred_result = combine_results(pred_labels, orig, centroids)
+      ## Prepare batches for facial parts
+      batches = prepare_batches(parts)
+     
+      ## Get prediction
+      pred_labels = {}
+      for name in batches:
+        pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
 
-    ## Save results
-    save_results(ground_result, pred_result, indexs, offsets, shapes)
-    print("Processed %d images"%args.batch_size)
+      ## Update F1-measure stat for this batch
+      calculate_F1(batches, pred_labels)
 
-## Show stats
-show_F1()
+      ## Rearrange patch results onto original image
+      ground_result, pred_result = combine_results(pred_labels, orig, centroids)
+
+      ## Save results
+      save_results(ground_result, pred_result, indexs, offsets, shapes)
+      print("Processed %d images"%args.batch_size)
+
+  ## Show stats
+  show_F1()
+
+if __name__ == '__main__':
+  main()

@@ -15,6 +15,7 @@ class DataArg(object):
 	def __call__(self, sample):
 		image, labels, idx = sample['image'], sample['labels'], sample['index']
 
+		
 		np.random.seed(datetime.now().microsecond)
 		Hshift = np.random.randint(-10,11)
 		Vshift = np.random.randint(-10,11)
@@ -53,7 +54,7 @@ class DataArg(object):
 
 
 		labels = labels.transpose(2,0,1) # Rearrange labels back
-
+		
 		return {'image': image,	'labels': labels, 'index': idx}
 
 
@@ -111,7 +112,11 @@ class Invert(object):
 
 	def __call__(self, sample):
 		image, labels, idx = sample['image'], sample['labels'], sample['index']
-		return {'image': image.flip(-1), 'labels': labels.flip(-1), 'index': idx}
+		if type(image).__module__==np.__name__:
+			return  {'image':  np.flip(image, -2).copy(), 'labels': np.flip(labels, -1).copy(), 'index': idx}
+		else:
+			return {'image': image.flip(-1), 'labels': labels.flip(-1), 'index': idx}
+		
 
 
 
@@ -138,7 +143,7 @@ class ImageDataset(Dataset):
 		img_name = os.path.join(self.root_dir, 'images',
 			self.name_list[idx, 1].strip() + '.jpg')
 
-		image = io.imread(img_name)
+		image = np.array(io.imread(img_name), dtype=np.float)
 
 		label_name = os.path.join(self.root_dir, 'labels',
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')

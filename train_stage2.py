@@ -38,10 +38,10 @@ test_datasets = {}
 
 ## Training set
 train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', bg_indexs=set(range(11)).difference([2]), trans=[DataArg(),ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', bg_indexs=set(range(11)).difference([3]), trans=[DataArg(),ToTensor(), Invert()])])
+										   make_dataset('exemplars.txt', 'eyebrow2', bg_indexs=set(range(11)).difference([3]), trans=[Invert(), DataArg(),ToTensor()])])
 
 train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', bg_indexs=set(range(11)).difference([4]), trans=[DataArg(),ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', bg_indexs=set(range(11)).difference([5]), trans=[DataArg(),ToTensor(), Invert()])])
+									make_dataset('exemplars.txt', 'eye2', bg_indexs=set(range(11)).difference([5]), trans=[Invert(), DataArg(),ToTensor()])])
 
 train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', bg_indexs=set(range(11)).difference([6]), trans=[DataArg(),ToTensor()])
 train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', bg_indexs=set(range(11)).difference([7,8,9]), trans=[DataArg(),ToTensor()])

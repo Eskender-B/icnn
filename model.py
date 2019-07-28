@@ -66,11 +66,11 @@ class ICNN(nn.Module):
 		# Scale, convolve and output rows of features maps
 		# After this: inps = feature maps of [row1, row2, row3, row4]
 
-		scaled_inp = self.initial_bnorm[0](inp)
-		inps = [torch.tanh(self.inp_bnorm[0](self.inp_convs[0](scaled_inp)))]
+		scaled_inp = inp
+		inps = [torch.tanh(self.inp_bnorm[0](self.inp_convs[0](self.initial_bnorm[0](scaled_inp))))]
 		for i in range(1, self.num_rows):
-			scaled_inp = self.initial_bnorm[i](F.avg_pool2d(scaled_inp, kernel_size=3, stride=self.sf, padding=1))
-			inps.append(torch.tanh(self.inp_bnorm[i](self.inp_convs[i](scaled_inp))))
+			scaled_inp = F.avg_pool2d(scaled_inp, kernel_size=3, stride=self.sf, padding=1)
+			inps.append(torch.tanh(self.inp_bnorm[i](self.inp_convs[i](self.initial_bnorm[i](scaled_inp)))))
 
 
 		
