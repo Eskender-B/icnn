@@ -31,7 +31,6 @@ train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                           	   DataArg(),
                                                Rescale((64,64)),
                                                ToTensor()
                                            ]))

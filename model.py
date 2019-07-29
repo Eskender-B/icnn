@@ -69,7 +69,7 @@ class ICNN(nn.Module):
 		scaled_inp = inp
 		inps = [torch.tanh(self.inp_bnorm[0](self.inp_convs[0](self.initial_bnorm[0](scaled_inp))))]
 		for i in range(1, self.num_rows):
-			scaled_inp = F.avg_pool2d(scaled_inp, kernel_size=3, stride=self.sf, padding=1)
+			scaled_inp = F.avg_pool2d(scaled_inp, kernel_size=2, stride=self.sf)
 			inps.append(torch.tanh(self.inp_bnorm[i](self.inp_convs[i](self.initial_bnorm[i](scaled_inp)))))
 
 

@@ -23,12 +23,28 @@ class DataArg(object):
 		scale = np.random.random()*(1.1-0.9) + 0.9
 
 		h,w,c = image.shape
-		h,w = int(scale*h), int(scale*w)
+		new_h, new_w = int(scale*h), int(scale*w)
 		labels = labels.transpose(1,2,0) # process all labels in one go
 
 		## Scale
-		#image = transform.resize(image, (h,w))
-		#labels = transform.resize(labels, (h,w))
+		"""
+		image = transform.resize(image, (new_h,new_w))
+		labels = transform.resize(labels, (new_h,new_w))
+
+		if new_h - h > 0:
+			image = image[:(h-new_h),:,:]
+			labels = labels[:(h-new_h),:,:]
+		elif new_h - h < 0:
+			image = np.pad(image, ((0,(h-new_h)), (0,0), (0,0)), mode='constant')
+			labels = np.pad(labels, ((0,(h-new_h)), (0,0), (0,0)), mode='constant')
+
+		if new_w - w > 0:
+			image = image[:,:(w-new_w),:]
+			labels = labels[:,:(w-new_w),:]
+		elif new_w - w < 0:
+			image = np.pad(image, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
+			labels = np.pad(labels, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
+		"""
 
 		## Rotate
 		image = transform.rotate(image, angle)

@@ -231,13 +231,11 @@ def combine_results(pred_labels, orig, centroids):
 
 
     # Mouth parts
-    y, x = centroids[i][5]
+    y, x = np.array(np.array(centroids[i][5:8], dtype=np.float).mean(0), np.long)
     pred_mask[i,y-40:y+40,x-40:x+40,:] += upper_lip[i].unsqueeze(-1) * colors[5].view(1,1,3)
 
-    y, x = centroids[i][6]
     pred_mask[i,y-40:y+40,x-40:x+40,:] += inner_mouth[i].unsqueeze(-1) * colors[6].view(1,1,3)
 
-    y, x = centroids[i][7]
     pred_mask[i,y-40:y+40,x-40:x+40,:] += lower_lip[i].unsqueeze(-1) * colors[7].view(1,1,3)
 
   alpha = 0.1
