@@ -307,14 +307,31 @@ def show_F1():
   F1 = {}
   PRECISION = {}
   RECALL = {}
+  tot_p = 0.0
+  tot_r = 0.0
   for key in TP:
     PRECISION[key] = float(TP[key]) / (TP[key] + FP[key])
     RECALL[key] = float(TP[key]) / (TP[key] + FN[key])
     F1[key] = 2.*PRECISION[key]*RECALL[key]/(PRECISION[key]+RECALL[key])
 
-  print("\n\n", "PART ", "F1-MEASURE ", "PRECISION ", "RECALL")
+    tot_p += PRECISION[key]
+    tot_r += RECALL[key]
+
+  avg_p = tot_p/len(TP)
+  avg_r = tot_r/len(TP)
+  overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r)
+
+  mouth_p = (PRECISION['u_lip'] + PRECISION['i_mouth'] + PRECISION['l_lip'])/3.0
+  mouth_r = (RECALL['u_lip'] + RECALL['i_mouth'] + RECALL['l_lip'])/3.0
+  mouth_F1 = 2.* mouth_p * mouth_r / (mouth_p+mouth_r)
+
+
+  print("\n\n", "PART\t\t", "F1-MEASURE ", "PRECISION ", "RECALL")
   for k in F1:
-    print("%s\t"%k, "%.4f\t"%F1[k], "%.4f\t"%PRECISION[k], "%.4f\t"%RECALL[k])
+    print("%s\t\t"%k, "%.4f\t"%F1[k], "%.4f\t"%PRECISION[k], "%.4f\t"%RECALL[k])
+
+  print("mouth(all)\t", "%.4f\t"%mouth_F1, "%.4f\t"%mouth_p, "%.4f\t"%mouth_r)
+  print("Overall\t\t", "%.4f\t"%overall_F1, "%.4f\t"%avg_p, "%.4f\t"%avg_r)
 
 
 

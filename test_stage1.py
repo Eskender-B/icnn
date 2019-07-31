@@ -113,7 +113,7 @@ def save_results(indexs, pred_centroids, orig_centroids):
 	orig_centroids = orig_centroids.to('cpu').numpy()
 
 	for i,idx in enumerate(indexs):
-		img = unresized_dataset[idx]['image']
+		img = np.array(unresized_dataset[idx]['image'], np.int)
 		h,w,c = img.shape
 		plt.imshow(img)
 

@@ -81,17 +81,17 @@ models['eye'] = ICNN(output_maps=2).to(device)
 models['nose'] = ICNN(output_maps=2).to(device)
 models['mouth'] = ICNN(output_maps=4).to(device)
 
-optimizers['eyebrow'] = optim.SGD(models['eyebrow'].parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-schedulers['eyebrow'] = optim.lr_scheduler.StepLR(optimizers['eyebrow'], step_size=15, gamma=0.5)
+optimizers['eyebrow'] = optim.Adam(models['eyebrow'].parameters(), lr=args.lr)
+schedulers['eyebrow'] = optim.lr_scheduler.StepLR(optimizers['eyebrow'], step_size=10, gamma=0.5)
 
-optimizers['eye'] = optim.SGD(models['eye'].parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-schedulers['eye'] = optim.lr_scheduler.StepLR(optimizers['eye'], step_size=15, gamma=0.5)
+optimizers['eye'] = optim.Adam(models['eye'].parameters(), lr=args.lr)
+schedulers['eye'] = optim.lr_scheduler.StepLR(optimizers['eye'], step_size=10, gamma=0.5)
 
-optimizers['nose'] = optim.SGD(models['nose'].parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-schedulers['nose'] = optim.lr_scheduler.StepLR(optimizers['nose'], step_size=15, gamma=0.5)
+optimizers['nose'] = optim.Adam(models['nose'].parameters(), lr=args.lr)
+schedulers['nose'] = optim.lr_scheduler.StepLR(optimizers['nose'], step_size=10, gamma=0.5)
 
-optimizers['mouth'] = optim.SGD(models['mouth'].parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-schedulers['mouth'] = optim.lr_scheduler.StepLR(optimizers['mouth'], step_size=15, gamma=0.5)
+optimizers['mouth'] = optim.Adam(models['mouth'].parameters(), lr=args.lr)
+schedulers['mouth'] = optim.lr_scheduler.StepLR(optimizers['mouth'], step_size=10, gamma=0.5)
 
 
 criterion = nn.CrossEntropyLoss()
@@ -158,7 +158,7 @@ def train_model(part_name, criterion):
 	for epoch in range(1, args.epochs + 1):
 		train(epoch, model, train_loader, optimizer, criterion)
 		valid_loss = evaluate(model, valid_loader, criterion)
-		scheduler.step()
+		#scheduler.step()
 		msg = '...Epoch %02d, val loss (%s) = %.4f' % (
 		epoch, 	part_name, valid_loss)
 		LOG_INFO(msg)

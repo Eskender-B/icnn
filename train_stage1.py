@@ -66,7 +66,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 ############ ICNN Model ############
 
 model = ICNN(output_maps=9)
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.5)
 criterion = nn.CrossEntropyLoss()
 model = model.to(device)
@@ -125,7 +125,7 @@ def evaluate(model, loader, criterion):
 for epoch in range(1, args.epochs + 1):
 	train(epoch, model, train_loader, optimizer, criterion)
 	valid_loss = evaluate(model, valid_loader, criterion)
-	scheduler.step()
+	#scheduler.step()
 	msg = '...Epoch %02d, val loss = %.4f' % (
 	epoch, valid_loss)
 	LOG_INFO(msg)
