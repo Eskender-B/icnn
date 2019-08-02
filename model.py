@@ -87,7 +87,7 @@ class ICNN(nn.Module):
 
 				# Interlink
 				tmp_inp = torch.cat(
-				[F.max_pool2d(row_inps_prev[r-1], kernel_size=3, stride=self.sf, padding=1) if r-1>=0 else torch.Tensor().to(inp.device), # Downsample
+				[F.max_pool2d(row_inps_prev[r-1], kernel_size=2, stride=self.sf) if r-1>=0 else torch.Tensor().to(inp.device), # Downsample
 				row_inps_prev[r],					
 				F.interpolate(row_inps_prev[r+1], scale_factor=self.sf, mode='nearest') if r+1<self.num_rows !=0 else torch.Tensor().to(inp.device)],	#Upsample
 				dim=1)

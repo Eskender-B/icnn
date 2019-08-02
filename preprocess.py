@@ -90,12 +90,13 @@ class Rescale(object):
 	def __call__(self, sample):
 		image, labels, idx = sample['image'], sample['labels'], sample['index']
 
-		h, w = image.shape[:2]
+		l,h,w = labels.shape
+		_,_,c = image.shape
 		if isinstance(self.output_size, int):
 			if h > w:
-				new_h, new_w = self.output_size * h / w, self.output_size
+				new_h, new_w = int(self.output_size * h / w), self.output_size
 			else:
-				new_h, new_w = self.output_size, self.output_size * w / h
+				new_h, new_w = self.output_size, int(self.output_size * w / h)
 		else:
 			new_h, new_w = self.output_size
 
@@ -104,7 +105,16 @@ class Rescale(object):
 		new_img = transform.resize(image, (new_h, new_w))
 		new_labels = transform.resize(labels.transpose(1,2,0), (new_h,new_w)).transpose(2,0,1)
 
-		return {'image': new_img, 'labels': new_labels, 'index': idx}
+		# Put in a box with size 128 X 128 assuming aspect ratio is < 2.0 and output_size <= 64
+		box_size = 128
+		offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
+
+		pad_image = np.zeros([box_size,box_size,c])
+		pad_labels = np.zeros([l, box_size,box_size])
+		pad_image[offset_y:offset_y+new_h, offset_x:offset_x+new_w, :] = new_img
+		pad_labels[:,offset_y:offset_y+new_h, offset_x:offset_x+new_w] = new_labels
+
+		return {'image': pad_image, 'labels': pad_labels, 'index': idx}
 
 
 class ToTensor(object):

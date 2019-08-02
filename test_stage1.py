@@ -24,11 +24,12 @@ if torch.cuda.is_available():
 else:
 	device = torch.device("cpu")
 
+resize_num = 64
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((64,64)),
+                                               Rescale(resize_num),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -64,17 +65,6 @@ test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('test loss = %.4f' % (test_loss))
 
 
-###### See some images ######
-#colors = torch.Tensor([(255,255,255),	(255,0,0), (0,255,0), (0,0,255), (255,255,0), (0,255,255), (255,0,255),(192,192,192)]).to(device)
-
-def show_centroids(image, centroids_pred, centroids_orig):
-    """Show image with landmarks"""
-    h,w,c = image.shape
-    plt.imshow(image)
-    plt.scatter(w/64*centroids_orig[:-1, 0], h/64*centroids_orig[:-1, 1], s=10, marker='x', c='r')
-    plt.scatter(w/64*centroids_pred[:-1, 0], h/64*centroids_pred[:-1, 1], s=10, marker='x', c='g')
-    #plt.pause(0.001)  # pause a bit so that plots are updated
-
 def calculate_centroids(tensor):
 	tensor = tensor.float() + 1e-10
 	n,l,h,w = tensor.shape
@@ -100,7 +90,7 @@ def show_error():
 	dist_error /=count
 	parts = ['eyebrow1', 'eyebrow2', 'eye1', 'eye2', 'nose', 'mouth']
 	
-	print("\n\nDistance Error in 64 X 64 image (in pixels) ... ")
+	print("\n\nDistance Error in resized image (in pixels) ... ")
 	for i in range(len(parts)-1):
 		print(parts[i], "%.2f pixels"%dist_error[i])
 	print(parts[-1], "%.2f pixels"%dist_error[-3:].mean())
@@ -117,8 +107,12 @@ def save_results(indexs, pred_centroids, orig_centroids):
 		h,w,c = img.shape
 		plt.imshow(img)
 
-		plt.scatter(w/64*orig_centroids[i,:-1, 0], h/64*orig_centroids[i,:-1, 1], s=10, marker='x', c='r', label='Ground Truth')
-		plt.scatter(w/64*pred_centroids[i,:-1, 0], h/64*pred_centroids[i,:-1, 1], s=10, marker='x', c='g', label='Predicted')
+		box_size = 128
+		new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
+		offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
+
+		plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
+		plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
 
 		plt.legend()
 		plt.savefig('res/'+unresized_dataset.name_list[idx, 1].strip() + '_loc.jpg')

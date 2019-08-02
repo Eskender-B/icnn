@@ -23,13 +23,13 @@ if torch.cuda.is_available():
 else:
   device = torch.device("cpu")
 
-
+resize_num = 64
 ## Load test data 
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((64,64)),
+                                               Rescale(resize_num),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -89,7 +89,12 @@ def extract_parts(indexs, centroids, orig_dataset):
     orig_labels = torch.cat([orig_labels, labels])
 
     # Scale and shift centroids
-    centroids[i] =  centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) \
+    c_box_size = 128
+    new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
+    c_offset_y, c_offset_x = (c_box_size-new_h)//2, (c_box_size-new_w)//2
+
+    centroids[i] =  ( (centroids[i] - torch.Tensor([c_offset_y, c_offset_x]).view(1,2).to(device) )\
+                                 * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
                                  + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
 
