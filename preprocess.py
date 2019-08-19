@@ -148,7 +148,7 @@ class Invert(object):
 
 class ImageDataset(Dataset):
 	"""Image dataset."""
-	def __init__(self, txt_file, root_dir, bg_indexs=set([]), transform=None):
+	def __init__(self, txt_file, root_dir, bg_indexs=set([]), fg_indexs=None, transform=None):
 		"""
 		Args:
 		txt_file (string): Path to the txt file with list of image id, name.
@@ -159,8 +159,12 @@ class ImageDataset(Dataset):
 		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
-		self.bg_indexs = sorted(bg_indexs)
-		self.fg_indexs = sorted(set(range(11)).difference(bg_indexs))
+
+		if not fg_indexs:
+			self.bg_indexs = sorted(bg_indexs)
+			self.fg_indexs = sorted(set(range(11)).difference(bg_indexs))
+		else:
+			self.fg_indexs = sorted(fg_indexs)
 
 	def __len__(self):
 		return len(self.name_list)
@@ -175,17 +179,10 @@ class ImageDataset(Dataset):
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
 		labels = []
-		for i in range(11):
+		for i in self.fg_indexs:
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
-
-		if self.bg_indexs != []:
-			# calculate background pixels
-			bg = np.zeros(labels[0].shape)
-			for i in self.bg_indexs:
-				bg = bg+labels[i]
-
-			labels = np.concatenate((labels[self.fg_indexs] ,[bg.clip(0.0,255.0)]), axis=0)
+		labels = np.concatenate((labels,[255.0-labels.sum(0)]), axis=0)
 		
 		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:

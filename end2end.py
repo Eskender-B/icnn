@@ -163,10 +163,10 @@ def extract_parts(indexs, centroids, orig_dataset):
 
 def bg(labels, fg_indexes):
   """Prepares mask labels for the desired facial part"""
-  bg_indexes = list( set(range(11)) - set(fg_indexes) )
 
-  res = torch.cat( [labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device)),
-                    labels.index_select(1, torch.tensor(bg_indexes).long().to(labels.device)).sum(1, keepdim=True).clamp(0.,255.)], 1 )
+  fg = labels.index_select(1, torch.tensor(fg_indexes).long().to(labels.device))
+  bg = torch.tensor(255.0).to(labels.device) - fg.sum(1, keepdim=True)
+  res = torch.cat( [fg, bg], 1 )
 
   return F.one_hot(res.argmax(dim=1), len(fg_indexes)+1).transpose(3,1).transpose(2,3)
 
