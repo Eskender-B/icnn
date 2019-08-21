@@ -29,7 +29,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((64,64)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -93,10 +93,11 @@ def extract_parts(indexs, centroids, orig_dataset):
     new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
     c_offset_y, c_offset_x = (c_box_size-new_h)//2, (c_box_size-new_w)//2
 
-    centroids[i] =  ( (centroids[i] - torch.Tensor([c_offset_y, c_offset_x]).view(1,2).to(device) )\
-                                 * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
-                                 + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
-
+    #centroids[i] =  ( (centroids[i] - torch.Tensor([c_offset_y, c_offset_x]).view(1,2).to(device) )\
+    #                             * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
+    #                             + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
+    
+    centroids[i] = centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
   orig_images = orig_images.to(device).view(len(indexs),3,box_size,box_size)
   orig_labels = orig_labels.to(device).view(len(indexs),l,box_size,box_size)

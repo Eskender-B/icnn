@@ -15,7 +15,7 @@ import pickle
 from skimage import io
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
+parser.add_argument("--batch_size", default=5, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
@@ -150,6 +150,8 @@ def extract_parts(loader, orig_dataset):
                                  * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
                                  + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
+
+        #centroids[i] = centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
       orig_images = orig_images.to(device).view(len(indexs),3,box_size,box_size)
       orig_labels = orig_labels.to(device).view(len(indexs),l,box_size,box_size)

@@ -32,7 +32,7 @@ train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((64,64)),
                                                ToTensor()
                                            ]))
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
@@ -43,7 +43,7 @@ valid_dataset = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((64,64)),
                                                ToTensor()
                                            ]))
 valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
@@ -54,7 +54,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((64,64)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -68,7 +68,7 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 
 model = ICNN(output_maps=9)
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.5)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 criterion = nn.CrossEntropyLoss()
 model = model.to(device)
 criterion = criterion.to(device)
@@ -122,18 +122,26 @@ def evaluate(model, loader, criterion):
 
 	return epoch_loss / len(loader)
 
+LOSS = 100
+epoch_min = 1
 
 for epoch in range(1, args.epochs + 1):
 	train(epoch, model, train_loader, optimizer, criterion)
 	valid_loss = evaluate(model, valid_loader, criterion)
-	#scheduler.step()
-	msg = '...Epoch %02d, val loss = %.4f' % (
-	epoch, valid_loss)
+	if valid_loss < LOSS:
+		LOSS = valid_loss
+		epoch_min = epoch
+		pickle.dump(model, open('res/saved-model.pth', 'wb'))
+
+	scheduler.step()
+	msg = '...Epoch %02d, val loss = %.4f' % (epoch, valid_loss)
 	LOG_INFO(msg)
 
-pickle.dump(model, open('res/saved-model.pth', 'wb'))
+
 model = pickle.load(open('res/saved-model.pth', 'rb'))
 
 
+msg = 'Min @ Epoch %02d, val loss = %.4f' % (epoch_min, LOSS)
+LOG_INFO(msg)
 test_loss = evaluate(model, test_loader, criterion)
 LOG_INFO('Finally, test loss = %.4f' % (test_loss))

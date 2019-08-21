@@ -27,7 +27,7 @@ class DataArg(object):
 		labels = labels.transpose(1,2,0) # process all labels in one go
 
 		## Scale
-		"""
+		
 		image = transform.resize(image, (new_h,new_w))
 		labels = transform.resize(labels, (new_h,new_w))
 
@@ -44,7 +44,7 @@ class DataArg(object):
 		elif new_w - w < 0:
 			image = np.pad(image, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
 			labels = np.pad(labels, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
-		"""
+		
 
 		## Rotate
 		image = transform.rotate(image, angle)
@@ -114,7 +114,8 @@ class Rescale(object):
 		pad_image[offset_y:offset_y+new_h, offset_x:offset_x+new_w, :] = new_img
 		pad_labels[:,offset_y:offset_y+new_h, offset_x:offset_x+new_w] = new_labels
 
-		return {'image': pad_image, 'labels': pad_labels, 'index': idx}
+		#return {'image': pad_image, 'labels': pad_labels, 'index': idx}
+		return {'image': new_img, 'labels': new_labels, 'index': idx}
 
 
 class ToTensor(object):
@@ -182,9 +183,17 @@ class ImageDataset(Dataset):
 		for i in self.fg_indexs:
 			labels.append(io.imread(label_name%i))
 		labels = np.array(labels, dtype=np.float)
-		labels = np.concatenate((labels,[255.0-labels.sum(0)]), axis=0)
-		
+		#labels = np.concatenate((labels, [255.0-labels.sum(0)]), axis=0)
+				
 		sample = {'image': image, 'labels': labels, 'index':idx}
 		if self.transform:
 			sample = self.transform(sample)
+
+		# Add background
+		image, labels = sample['image'], sample['labels'],
+		if type(labels).__module__==np.__name__:
+			labels = np.concatenate((labels, [255.0-labels.sum(0)]), axis=0)
+		else:
+			labels = torch.cat([labels, torch.tensor(255.0).to(labels.device) - labels.sum(0, keepdim=True)], 0)
+		sample = {'image': image, 'labels': labels, 'index':idx}
 		return sample

@@ -37,14 +37,14 @@ valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(),ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(),ToTensor()])])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(), ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(), ToTensor()])])
 
 train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[DataArg(),ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), DataArg(),ToTensor()])])
+									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(),DataArg(), ToTensor()])])
 
 train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[DataArg(),ToTensor()])
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(),ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(), ToTensor()])
 
 
 ## Validation set
@@ -82,16 +82,16 @@ models['nose'] = ICNN(output_maps=2).to(device)
 models['mouth'] = ICNN(output_maps=4).to(device)
 
 optimizers['eyebrow'] = optim.Adam(models['eyebrow'].parameters(), lr=args.lr)
-schedulers['eyebrow'] = optim.lr_scheduler.StepLR(optimizers['eyebrow'], step_size=10, gamma=0.5)
+schedulers['eyebrow'] = optim.lr_scheduler.StepLR(optimizers['eyebrow'], step_size=50, gamma=0.5)
 
 optimizers['eye'] = optim.Adam(models['eye'].parameters(), lr=args.lr)
-schedulers['eye'] = optim.lr_scheduler.StepLR(optimizers['eye'], step_size=10, gamma=0.5)
+schedulers['eye'] = optim.lr_scheduler.StepLR(optimizers['eye'], step_size=50, gamma=0.5)
 
 optimizers['nose'] = optim.Adam(models['nose'].parameters(), lr=args.lr)
-schedulers['nose'] = optim.lr_scheduler.StepLR(optimizers['nose'], step_size=10, gamma=0.5)
+schedulers['nose'] = optim.lr_scheduler.StepLR(optimizers['nose'], step_size=50, gamma=0.5)
 
 optimizers['mouth'] = optim.Adam(models['mouth'].parameters(), lr=args.lr)
-schedulers['mouth'] = optim.lr_scheduler.StepLR(optimizers['mouth'], step_size=10, gamma=0.5)
+schedulers['mouth'] = optim.lr_scheduler.StepLR(optimizers['mouth'], step_size=50, gamma=0.5)
 
 
 criterion = nn.CrossEntropyLoss()
@@ -144,7 +144,11 @@ def evaluate(model, loader, criterion):
 
 	return epoch_loss / len(loader)
 
-def train_model(part_name, criterion):
+
+
+def train_model(part_name, criterion, epochs):
+	LOSS = 100
+	epoch_min = 1
 
 	LOG_INFO('\n\nTraining model for %s ...' % part_name)
 	model = models[part_name]
@@ -155,16 +159,22 @@ def train_model(part_name, criterion):
 	valid_loader = DataLoader(valid_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
 	test_loader = DataLoader(test_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
 
-	for epoch in range(1, args.epochs + 1):
+	for epoch in range(1, epochs + 1):
 		train(epoch, model, train_loader, optimizer, criterion)
 		valid_loss = evaluate(model, valid_loader, criterion)
+		if valid_loss < LOSS:
+			LOSS = valid_loss
+			epoch_min = epoch
+			pickle.dump(model, open('res/saved-model-%s.pth'%part_name, 'wb'))
+
 		#scheduler.step()
-		msg = '...Epoch %02d, val loss (%s) = %.4f' % (
-		epoch, 	part_name, valid_loss)
+		msg = '...Epoch %02d, val loss (%s) = %.4f' % (epoch, 	part_name, valid_loss)
 		LOG_INFO(msg)
 
-	pickle.dump(model, open('res/saved-model-%s.pth'%part_name, 'wb'))
+
 	model = pickle.load(open('res/saved-model-%s.pth'%part_name, 'rb'))
+	msg = 'Min @ Epoch %02d, val loss (%s) = %.4f' % (epoch_min, 	part_name, LOSS)
+	LOG_INFO(msg)
 
 	test_loss = evaluate(model, test_loader, criterion)
 	LOG_INFO('Finally, test loss (%s) = %.4f' % (part_name, test_loss))
@@ -172,5 +182,9 @@ def train_model(part_name, criterion):
 
 
 names = ['eyebrow', 'eye', 'nose', 'mouth']
+#names = ['mouth']
 for name in names:
-	train_model(name, criterion)
+	if name=='mouth':
+		train_model(name, criterion, 2*args.epochs)
+	else:
+		train_model(name, criterion, args.epochs)

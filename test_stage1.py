@@ -29,7 +29,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((64,64)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -107,9 +107,12 @@ def save_results(indexs, pred_centroids, orig_centroids):
 		h,w,c = img.shape
 		plt.imshow(img)
 
-		box_size = 128
-		new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
-		offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
+		#box_size = 128
+		#new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
+		#offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
+
+		new_h, new_w = 64, 64
+		offset_y, offset_x = 0, 0
 
 		plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
 		plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
