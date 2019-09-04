@@ -17,9 +17,9 @@ class DataArg(object):
 
 		
 		np.random.seed(datetime.now().microsecond)
-		Hshift = np.random.randint(-10,11)
-		Vshift = np.random.randint(-10,11)
-		angle = np.random.random()*30 - 15
+		Hshift = np.random.randint(-5,6)
+		Vshift = np.random.randint(-5,6)
+		angle = np.random.random()*20 - 10
 		scale = np.random.random()*(1.1-0.9) + 0.9
 
 		h,w,c = image.shape

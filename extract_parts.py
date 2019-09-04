@@ -146,19 +146,19 @@ def extract_parts(loader, orig_dataset):
         new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
         c_offset_y, c_offset_x = (c_box_size-new_h)//2, (c_box_size-new_w)//2
 
-        centroids[i] =  ( (centroids[i] - torch.Tensor([c_offset_y, c_offset_x]).view(1,2).to(device) )\
-                                 * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
-                                 + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
+        #centroids[i] =  ( (centroids[i] - torch.Tensor([c_offset_y, c_offset_x]).view(1,2).to(device) )\
+        #                         * torch.Tensor([h/new_h, w/new_w]).view(1,2).to(device) ) \
+        #                         + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
 
-        #centroids[i] = centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
+        centroids[i] = centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
       orig_images = orig_images.to(device).view(len(indexs),3,box_size,box_size)
       orig_labels = orig_labels.to(device).view(len(indexs),l,box_size,box_size)
 
       #################
       # Non-Mouth parts
-      index = centroids.index_select(1, torch.tensor(range(5)).to(device)).long()
+      index = centroids.index_select(1, torch.tensor(range(5)).to(device)).round().long()
       n_parts = index.shape[-2]
 
       # Construct repeated image of n x p x c x h x w
@@ -188,7 +188,7 @@ def extract_parts(loader, orig_dataset):
       
       ##################
       # Mouth part
-      index = centroids.index_select(1, torch.tensor(range(5,8)).to(device)).mean(dim=1, keepdim=True).long()
+      index = centroids.index_select(1, torch.tensor(range(5,8)).to(device)).mean(dim=1, keepdim=True).round().long()
 
       # Construct repeated image of n x 1 x c x h x w
       repeated_images = orig_images.unsqueeze(1)

@@ -7,7 +7,7 @@ import numpy as np
 from preprocess import Rescale, ToTensor, ImageDataset, Invert, DataArg
 from torch.utils.data import DataLoader, ConcatDataset
 from torchvision import transforms, utils
-from model import ICNN
+from model import IRCNN, ICNN
 import argparse
 from utils import LOG_INFO
 import pickle
@@ -72,7 +72,7 @@ test_datasets['mouth'] = make_dataset('testing.txt', 'mouth', fg_indexs=set([7,8
 
 
 ####################################
-############ ICNN Models ############
+############ IRCNN Models ############
 models = {}
 optimizers={}
 schedulers={}

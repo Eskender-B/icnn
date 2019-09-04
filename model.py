@@ -51,11 +51,10 @@ class ICNN(nn.Module):
 
 
 		# Last conv
-		self.last_conv1 = nn.Conv2d(2*self.L+8, self.L 
-			, self.kernel_size, padding=self.kernel_size//2)
+		self.last_conv1 = nn.Conv2d(2*self.L+8, self.L , self.last_kernel_size, padding=self.last_kernel_size//2)
 
-		self.last_conv2 = nn.Conv2d(self.L, self.L
-			, self.last_kernel_size, padding=self.last_kernel_size//2)
+		
+		#self.last_conv2 = nn.Conv2d(self.L, self.L, self.last_kernel_size, padding=self.last_kernel_size//2)
 
 
 
@@ -114,4 +113,82 @@ class ICNN(nn.Module):
 				lower_maps = torch.tanh(self.top_bnorm(self.top_conv(tmp_inp)))
 
 		# Final
-		return self.last_conv2(self.last_conv1(lower_maps))
+		return self.last_conv1(lower_maps)
+
+
+
+class IRCNN(nn.Module):
+
+	def __init__(self, output_maps=9):
+		super(IRCNN,self).__init__()
+		self.num_channel = 8
+		self.num_rows = 4
+		self.time_step = 3
+		self.L = output_maps
+		self.kernel_size = 5	# has to be odd (or need to change padding below)
+		self.last_kernel_size = 9
+
+		self.initial_bnorm = nn.BatchNorm2d(3)
+		self.initial_conv = nn.Conv2d(3, self.num_channel,  self.kernel_size, padding=self.kernel_size//2)
+		self.inp_bnorm = nn.ModuleList([nn.BatchNorm2d(self.num_channel) for r in range(self.num_rows)])
+		self.forward_conv3 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		self.forward_conv2 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		self.forward_conv1 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+
+
+		self.from_up_conv2 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		self.from_up_conv1 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		
+		self.from_down_conv3 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		self.from_down_conv2 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+		self.from_down_conv1 = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in [0]])
+
+
+		self.bnorm3 = nn.ModuleList([nn.BatchNorm2d(self.num_channel) for t in range(self.time_step)])
+		self.bnorm2 = nn.ModuleList([nn.BatchNorm2d(self.num_channel) for t in range(self.time_step)])
+		self.bnorm1 = nn.ModuleList([nn.BatchNorm2d(self.num_channel) for t in range(self.time_step)])
+
+
+
+		self.down_conv = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in range(self.num_rows-2)])
+		self.straight_conv = nn.ModuleList([nn.Conv2d(self.num_channel, self.num_channel,  self.kernel_size, padding=self.kernel_size//2) for i in range(self.num_rows-2)])
+		self.out_bnorm = nn.ModuleList([nn.BatchNorm2d(self.num_channel) for i in range(self.num_rows-2)])
+
+
+		# Last conv
+		self.low_conv = nn.Conv2d(self.num_channel, 2*self.L+8, self.kernel_size, padding=self.kernel_size//2)
+		self.low_bnorm = nn.BatchNorm2d(2*self.L+8 )
+
+		self.last_conv1 = nn.Conv2d(2*self.L+8, self.L , self.last_kernel_size, padding=self.last_kernel_size//2)
+		#self.last_conv2 = nn.Conv2d(self.L, self.L, self.last_kernel_size, padding=self.last_kernel_size//2)
+
+
+
+	def forward(self, inp):
+		inp = self.initial_conv(self.initial_bnorm(inp))
+		inps = [torch.tanh(self.inp_bnorm[0](inp))]
+		for r in range(1, self.num_rows):
+			inps.append(torch.tanh(self.inp_bnorm[r](eval("self.forward_conv%d"%r)[0](inps[-1]))))
+
+
+		for t in range(self.time_step):
+			prev_inps = inps
+			inps = [inps[0]]
+			
+			for r in range(1, self.num_rows):
+				inp = eval("self.forward_conv%d"%r)[0](prev_inps[r]) + eval("self.from_down_conv%d"%r)[0](prev_inps[r-1])
+
+				if r <= self.num_rows-2:
+					inp +=  eval("self.from_up_conv%d"%r)[0](prev_inps[r+1])
+
+				inps.append(torch.tanh(eval("self.bnorm%d"%r)[t](inp)))
+
+
+		upper_maps = inps[self.num_rows-1]
+		for r in range(self.num_rows-2, 0, -1):
+			upper_maps = torch.tanh(self.out_bnorm[r-1](self.straight_conv[r-1](inps[r]) + self.down_conv[r-1](upper_maps)))
+
+		tmp=torch.tanh(self.low_bnorm(self.low_conv(upper_maps)))
+
+		return self.last_conv1(tmp)
+

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from model import ICNN
+from bg_modulate import Modulator
 from utils import LOG_INFO
 from preprocess import Rescale, ToTensor, ImageDataset
 from torch.utils.data import DataLoader
@@ -46,9 +47,11 @@ model = model.to(device)
 
 names = ['eyebrow', 'eye', 'nose', 'mouth']
 models={}
+modulators={}
 for name in names:
   models[name] = pickle.load(open('res/saved-model-%s.pth'%name, 'rb'))
-  models[name].to(device)
+  modulators[name] = pickle.load(open('res/saved-modulator-%s.pth'%name, 'rb'))
+  #models[name].to(device)
 
 
 #################################################################
@@ -106,7 +109,7 @@ def extract_parts(indexs, centroids, orig_dataset):
 
   #################
   # Non-Mouth parts
-  index = centroids.index_select(1, torch.tensor(range(5)).to(device)).long()
+  index = centroids.index_select(1, torch.tensor(range(5)).to(device)).round().long()
   n_parts = index.shape[-2]
 
   # Construct repeated image of n x p x c x h x w
@@ -135,7 +138,7 @@ def extract_parts(indexs, centroids, orig_dataset):
   
   ##################
   # Mouth part
-  index = centroids.index_select(1, torch.tensor(range(5,8)).to(device)).mean(dim=1, keepdim=True).long()
+  index = centroids.index_select(1, torch.tensor(range(5,8)).to(device)).mean(dim=1, keepdim=True).round().long()
 
   # Construct repeated image of n x 1 x c x h x w
   repeated_images = orig_images.unsqueeze(1)
@@ -159,7 +162,7 @@ def extract_parts(indexs, centroids, orig_dataset):
 
   res['mouth'] = {'patch_images': patch_images, 'patch_labels': patch_labels}
 
-  return res, centroids.long(), orig, np.array(offsets), np.array(shapes)
+  return res, centroids, orig, np.array(offsets), np.array(shapes)
 
 
 def bg(labels, fg_indexes):
@@ -220,24 +223,24 @@ def combine_results(pred_labels, orig, centroids):
 
   for i in range(batch_size):
     # Non-mouth parts
-    y, x = centroids[i][0]
+    y, x = np.array(centroids[i][0].round(), np.long)
     pred_mask[i,y-32:y+32,x-32:x+32,:] += eyebrow1[i].unsqueeze(-1) * colors[0].view(1,1,3)
 
-    y, x = centroids[i][1]
+    y, x = np.array(centroids[i][1].round(), np.long)
     pred_mask[i,y-32:y+32,x-32:x+32,:] += eyebrow2[i].unsqueeze(-1) * colors[1].view(1,1,3)
 
-    y, x = centroids[i][2]
+    y, x = np.array(centroids[i][2].round(), np.long)
     pred_mask[i,y-32:y+32,x-32:x+32,:] += eye1[i].unsqueeze(-1) * colors[2].view(1,1,3)
 
-    y, x = centroids[i][3]
+    y, x = np.array(centroids[i][3].round(), np.long)
     pred_mask[i,y-32:y+32,x-32:x+32,:] += eye2[i].unsqueeze(-1) * colors[3].view(1,1,3)
 
-    y, x = centroids[i][4]
+    y, x = np.array(centroids[i][4].round(), np.long)
     pred_mask[i,y-32:y+32,x-32:x+32,:] += nose[i].unsqueeze(-1) * colors[4].view(1,1,3)
 
 
     # Mouth parts
-    y, x = np.array(np.array(centroids[i][5:8], dtype=np.float).mean(0), np.long)
+    y, x = np.array(np.array(centroids[i][5:8], dtype=np.float).mean(0).round(), np.long)
     pred_mask[i,y-40:y+40,x-40:x+40,:] += upper_lip[i].unsqueeze(-1) * colors[5].view(1,1,3)
 
     pred_mask[i,y-40:y+40,x-40:x+40,:] += inner_mouth[i].unsqueeze(-1) * colors[6].view(1,1,3)
@@ -323,13 +326,17 @@ def show_F1():
     tot_p += PRECISION[key]
     tot_r += RECALL[key]
 
-  avg_p = tot_p/len(TP)
-  avg_r = tot_r/len(TP)
-  overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r)
+  #avg_p = tot_p/len(TP)
+  #avg_r = tot_r/len(TP)
+  #overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r)
 
   mouth_p = (PRECISION['u_lip'] + PRECISION['i_mouth'] + PRECISION['l_lip'])/3.0
   mouth_r = (RECALL['u_lip'] + RECALL['i_mouth'] + RECALL['l_lip'])/3.0
   mouth_F1 = 2.* mouth_p * mouth_r / (mouth_p+mouth_r)
+
+  avg_p = (PRECISION['eyebrow']+PRECISION['eye']+PRECISION['nose']+mouth_p)/4.0
+  avg_r = (RECALL['eyebrow']+RECALL['eye']+RECALL['nose']+mouth_r)/4.0
+  overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r)
 
 
   print("\n\n", "PART\t\t", "F1-MEASURE ", "PRECISION ", "RECALL")
@@ -363,7 +370,7 @@ def main():
       ## Get prediction
       pred_labels = {}
       for name in batches:
-        pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
+        pred_labels[name] = F.one_hot(modulators[name](models[name](batches[name]['image'])).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
 
       ## Update F1-measure stat for this batch
       calculate_F1(batches, pred_labels)
