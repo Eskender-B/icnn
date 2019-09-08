@@ -16,5 +16,8 @@ Train Stage1
 Train Stage2
 ```python3 train_stage2.py```
 
+Modulate background
+```python3 bg_modulate.py```
+
 Run end2end
 ```python3 end2end.py```
