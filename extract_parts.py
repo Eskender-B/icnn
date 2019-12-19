@@ -88,8 +88,8 @@ def save_patches(image, labels, dataset, indexs):
   _,_,l,_,_ = labels.shape
   name_list = dataset.name_list
 
-  image = np.uint8(image.to('cpu').numpy().transpose([0,1,3,4,2]))
-  labels = np.uint8(labels.to('cpu').numpy())
+  image = np.uint8(image.to('cpu').numpy().transpose([0,1,3,4,2]) * 255)
+  labels = np.uint8(labels.to('cpu').numpy() * 255)
 
   for i in range(n):
     # Save each patch in an image

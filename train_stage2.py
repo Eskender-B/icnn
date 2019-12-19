@@ -16,8 +16,8 @@ import pickle
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=10, type=int, help="Batch size to use during training.")
 parser.add_argument("--display_freq", default=10, type=int, help="Display frequency")
-parser.add_argument("--lr", default=0.01, type=float, help="Learning rate for optimizer")
-parser.add_argument("--epochs", default=5, type=int, help="Number of epochs to train")
+parser.add_argument("--lr", default=0.001, type=float, help="Learning rate for optimizer")
+parser.add_argument("--epochs", default=10, type=int, help="Number of epochs to train")
 args = parser.parse_args()
 print(args)
 
@@ -37,22 +37,22 @@ valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(), ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(), ToTensor()])])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
 
-train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[DataArg(),ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(),DataArg(), ToTensor()])])
+train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
+									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
 
-train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[DataArg(),ToTensor()])
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(), ToTensor()])
+train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
 
 
 ## Validation set
 valid_datasets['eyebrow'] = ConcatDataset([make_dataset('tuning.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
-										   make_dataset('tuning.txt', 'eyebrow2', fg_indexs=set([3]), trans=[ToTensor(), Invert()])])
+										   make_dataset('tuning.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
 
 valid_datasets['eye'] = ConcatDataset([make_dataset('tuning.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
-									make_dataset('tuning.txt', 'eye2', fg_indexs=set([5]), trans=[ToTensor(), Invert()])])
+									make_dataset('tuning.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
 
 valid_datasets['nose'] = make_dataset('tuning.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
 valid_datasets['mouth'] = make_dataset('tuning.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
@@ -60,10 +60,10 @@ valid_datasets['mouth'] = make_dataset('tuning.txt', 'mouth', fg_indexs=set([7,8
 
 ## Testing set
 test_datasets['eyebrow'] = ConcatDataset([make_dataset('testing.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
-										   make_dataset('testing.txt', 'eyebrow2', fg_indexs=set([3]), trans=[ToTensor(), Invert()])])
+										   make_dataset('testing.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
 
 test_datasets['eye'] = ConcatDataset([make_dataset('testing.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
-									make_dataset('testing.txt', 'eye2', fg_indexs=set([5]), trans=[ToTensor(), Invert()])])
+									make_dataset('testing.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
 
 test_datasets['nose'] = make_dataset('testing.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
 test_datasets['mouth'] = make_dataset('testing.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
