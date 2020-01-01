@@ -28,11 +28,13 @@ else:
 # Uncomment if GPU size is not engough or decrease batch_size
 #device = torch.device("cpu")
 resize_num = 64
+part_width = 96
+part_mouth = 96
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((resize_num,resize_num)),
                                                ToTensor()
                                            ]))
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
@@ -43,7 +45,7 @@ valid_dataset = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((resize_num,resize_num)),
                                                ToTensor()
                                            ]))
 valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
@@ -54,7 +56,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(resize_num),
+                                               Rescale((resize_num,resize_num)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -63,13 +65,13 @@ test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
 
 unresized_train = ImageDataset(txt_file='exemplars.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
-                                           transform=ToTensor())
+                                           transform=ToTensor(), calc_bg=False)
 unresized_valid = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
-                                           transform=ToTensor())
+                                           transform=ToTensor(), calc_bg=False)
 unresized_test = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
-                                           transform=ToTensor())
+                                           transform=ToTensor(), calc_bg=False)
 
 
 def calculate_centroids(tensor):
@@ -151,7 +153,7 @@ def extract_parts(loader, orig_dataset):
         #                         + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
 
-        centroids[i] = centroids[i] * torch.Tensor([h/64., w/64.]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
+        centroids[i] = centroids[i] * torch.Tensor([h/resize_num, w/resize_num]).view(1,2).to(device) + torch.Tensor([offset_y, offset_x]).view(1,2).to(device)
 
       orig_images = orig_images.to(device).view(len(indexs),3,box_size,box_size)
       orig_labels = orig_labels.to(device).view(len(indexs),l,box_size,box_size)
@@ -165,13 +167,13 @@ def extract_parts(loader, orig_dataset):
       repeated_images = orig_images.unsqueeze(1).repeat_interleave(n_parts, dim=1)
       repeated_labels = orig_labels.unsqueeze(1).repeat_interleave(n_parts, dim=1)
 
-      # Calculate index of patches of the form n x p x 64 x 64 corresponding to each facial part
-      # After this index_x/y will be n x p x 64 x 64
-      index_y = index[:,:,0].unsqueeze(-1) + torch.from_numpy(np.arange(-32,32)).view(1,1,64).to(device)
+      # Calculate index of patches of the form n x p x part_width x part_width corresponding to each facial part
+      # After this index_x/y will be n x p x part_width x part_width
+      index_y = index[:,:,0].unsqueeze(-1) + torch.from_numpy(np.arange(-part_width//2,part_width//2)).view(1,1,part_width).to(device)
       index_y = index_y.unsqueeze(-1).repeat_interleave(box_size, dim=-1)
 
-      index_x = index[:,:,1].unsqueeze(-1) + torch.from_numpy(np.arange(-32,32)).view(1,1,64).to(device)
-      index_x = index_x.unsqueeze(-2).repeat_interleave(64, dim=-2)
+      index_x = index[:,:,1].unsqueeze(-1) + torch.from_numpy(np.arange(-part_width//2,part_width//2)).view(1,1,part_width).to(device)
+      index_x = index_x.unsqueeze(-2).repeat_interleave(part_width, dim=-2)
 
       # Get patch images (n x p x c x h x w)
       patch_images = torch.gather(repeated_images, -2, index_y.unsqueeze(2).repeat_interleave(3,dim=2) )
@@ -194,19 +196,19 @@ def extract_parts(loader, orig_dataset):
       repeated_images = orig_images.unsqueeze(1)
       repeated_labels = orig_labels.unsqueeze(1)
       
-      # Calculate index of mouth patches of the form n x 1 x 80 x 80 corresponding mouth part
-      # After this index_x/y will be n x 1 x 80 x 80
-      index_y = index[:,:,0].unsqueeze(-1) + torch.from_numpy(np.arange(-40,40)).view(1,1,80).to(device)
+      # Calculate index of mouth patches of the form n x 1 x part_width x part_width corresponding mouth part
+      # After this index_x/y will be n x 1 x part_width x part_width
+      index_y = index[:,:,0].unsqueeze(-1) + torch.from_numpy(np.arange(-part_mouth//2,part_mouth//2)).view(1,1,part_mouth).to(device)
       index_y = index_y.unsqueeze(-1).repeat_interleave(box_size, dim=-1)
 
-      index_x = index[:,:,1].unsqueeze(-1) + torch.from_numpy(np.arange(-40,40)).view(1,1,80).to(device)
-      index_x = index_x.unsqueeze(-2).repeat_interleave(80, dim=-2)
+      index_x = index[:,:,1].unsqueeze(-1) + torch.from_numpy(np.arange(-part_mouth//2,part_mouth//2)).view(1,1,part_mouth).to(device)
+      index_x = index_x.unsqueeze(-2).repeat_interleave(part_mouth, dim=-2)
 
-      # Get patch images (n x 1 x c x 80 x 80)
+      # Get patch images (n x 1 x c x part_width x part_width)
       patch_images = torch.gather(repeated_images, -2, index_y.unsqueeze(2).repeat_interleave(3,dim=2) )
       patch_images = torch.gather(patch_images, -1, index_x.unsqueeze(2).repeat_interleave(3,dim=2) )
 
-      # Get patch labels (n x 1 x l x 80 x 80)
+      # Get patch labels (n x 1 x l x part_width x part_width)
       patch_labels = torch.gather(repeated_labels, -2, index_y.unsqueeze(2).repeat_interleave(l,dim=2) )
       patch_labels = torch.gather(patch_labels, -1, index_x.unsqueeze(2).repeat_interleave(l,dim=2) )
 
@@ -216,7 +218,7 @@ def extract_parts(loader, orig_dataset):
 
 
 # Globals
-root_dir='data/facial_parts'
+root_dir='data/facial_parts2'
 dic = {0: 'eyebrow1', 1:'eyebrow2', 2:'eye1', 3:'eye2', 4:'nose', 5:'mouth'}
 
 # Clean first

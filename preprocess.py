@@ -7,27 +7,32 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from datetime import datetime
+from torchvision.transforms import RandomAffine, ToTensor
+import torchvision.transforms.functional as tf
+from PIL import Image
+from mtcnn.mtcnn import MTCNN
 
 
 class DataArg(object):
 	"""Data Argumentation"""
 
 	def __call__(self, sample):
-		image, labels, idx = sample['image'], sample['labels'], sample['index']
+		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
 
-		
+
+		"""
 		np.random.seed(datetime.now().microsecond)
-		Hshift = np.random.randint(-5,6)
-		Vshift = np.random.randint(-5,6)
-		angle = np.random.random()*20 - 10
+		Hshift = np.random.randint(-24,24)
+		Vshift = np.random.randint(-24,24)
+		angle = np.random.random()*30 - 15
 		scale = np.random.random()*(1.1-0.9) + 0.9
 
 		h,w,c = image.shape
 		new_h, new_w = int(scale*h), int(scale*w)
 		labels = labels.transpose(1,2,0) # process all labels in one go
 
+		
 		## Scale
-		"""
 		image = transform.resize(image, (new_h,new_w))
 		labels = transform.resize(labels, (new_h,new_w))
 
@@ -44,13 +49,11 @@ class DataArg(object):
 		elif new_w - w < 0:
 			image = np.pad(image, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
 			labels = np.pad(labels, ((0,0), (0,(w-new_w)), (0,0)), mode='constant')
-		"""
+
+		
 
 
-		## Rotate
-		image = transform.rotate(image, angle)
-		labels = transform.rotate(labels, angle)
-
+		
 		## Shift
 		#image = np.roll(image, [Vshift, Hshift], [0,1] )
 		#labels = np.roll(labels, [Vshift, Hshift], [0,1] )
@@ -68,11 +71,32 @@ class DataArg(object):
 		else:
 			image = np.pad(image[:,-Hshift:,:], ((0,0),(0,-Hshift),(0,0)), mode='constant')
 			labels = np.pad(labels[:,-Hshift:,:], ((0,0),(0,-Hshift),(0,0)), mode='constant')
-
+		
+		
+		## Rotate
+		image = transform.rotate(image, angle)
+		labels = transform.rotate(labels, angle)
+	
 
 		labels = labels.transpose(2,0,1) # Rearrange labels back
 		
-		return {'image': image,	'labels': labels, 'index': idx}
+		
+		return {'image': np.uint8(image*255),	'labels': np.uint8(labels*255), 'index': idx}
+		"""
+
+		h,w,c = image.shape
+		params = RandomAffine.get_params([-15,15],[-0.1,0.1],[0.9,1.1], [0,0], [h,w])
+
+		image = np.array(tf.affine(Image.fromarray(image), angle=params[0], translate=params[1], scale=params[2], shear=params[3], resample=0, fillcolor=None))
+
+		lbls = []
+		for lbl in labels:
+			lbls.append(np.array(tf.affine(Image.fromarray(lbl), angle=params[0], translate=params[1], scale=params[2], shear=params[3], resample=0, fillcolor=None)))
+		labels = np.array(lbls)
+
+		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
+
+
 
 
 class Rescale(object):
@@ -89,7 +113,7 @@ class Rescale(object):
 		self.output_size = output_size
 
 	def __call__(self, sample):
-		image, labels, idx = sample['image'], sample['labels'], sample['index']
+		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
 
 		l,h,w = labels.shape
 		_,_,c = image.shape
@@ -103,37 +127,69 @@ class Rescale(object):
 
 		new_h, new_w = int(new_h), int(new_w)
 
-		new_img = np.uint8(transform.resize(image, (new_h, new_w)) * 255)
-		new_labels = np.uint8(transform.resize(labels.transpose(1,2,0), (new_h,new_w)).transpose(2,0,1)*255)
 
+		image = np.uint8(transform.resize(image, (new_h, new_w)) * 255)
+		labels = np.uint8(transform.resize(labels.transpose(1,2,0), (new_h,new_w)).transpose(2,0,1)*255)
+
+
+		
 		"""
 		# Put in a box with size 128 X 128 assuming aspect ratio is < 2.0 and output_size <= 64
 		box_size = 128
 		offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
 
-		pad_image = np.zeros([box_size,box_size,c])
-		pad_labels = np.zeros([l, box_size,box_size])
+		pad_image = np.zeros([box_size,box_size,c], dtype=np.uint8)
+		pad_labels = np.zeros([l, box_size,box_size], dtype=np.uint8)
 		pad_image[offset_y:offset_y+new_h, offset_x:offset_x+new_w, :] = new_img
 		pad_labels[:,offset_y:offset_y+new_h, offset_x:offset_x+new_w] = new_labels
+		return {'image': pad_image, 'labels': pad_labels, 'index': idx}
 		"""
+		
 
-		#return {'image': pad_image, 'labels': pad_labels, 'index': idx}
-		return {'image': new_img, 'labels': new_labels, 'index': idx}
+		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
+
+
+class FaceDetect(object):
+	
+	def __init__(self):
+		pass
+	
+
+	def __call__(self, sample):
+		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
+
+
+
+		dst = np.array([[-0.25,-0.1], [0.25, -0.1], [0.0, 0.1], [-0.15, 0.4], [0.15, 0.4]])
+		tform = transform.estimate_transform('similarity', landmarks, dst)
+		def map_func1(coords):
+			tform2 = transform.SimilarityTransform(scale=1/32, rotation=0, translation=(-1.0, -1.0))
+			return tform.inverse(tform2(coords))
+
+		l,h,w = labels.shape
+		image = np.uint8(transform.warp(image, inverse_map=map_func1, output_shape=[64,64,3] )*255)
+		labels = np.uint8(transform.warp(labels.transpose(1,2,0), inverse_map=map_func1, output_shape=[64,64,l]).transpose(2,0,1)*255)
+
+
+		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
+
 
 
 class ToTensor(object):
 	"""Convert ndarrays in sample to Tensors."""
 
 	def __call__(self, sample):
-		image, labels, idx = sample['image'], sample['labels'], sample['index']
+		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
 
 		# swap color axis because
 		# numpy image: H x W x C
 		# torch image: C X H X W
 		image = image.transpose((2, 0, 1))
-		return {'image': torch.from_numpy(image).float()/255,
-		'labels': torch.from_numpy(labels).float()/255,
-		'index': idx}
+
+		image = torch.from_numpy(image).float()/255
+		labels = torch.from_numpy(labels).float()/255
+
+		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
 
 
 
@@ -141,18 +197,19 @@ class Invert(object):
 	"""Flip image left to right"""
 
 	def __call__(self, sample):
-		image, labels, idx = sample['image'], sample['labels'], sample['index']
-		if type(image).__module__==np.__name__:
-			return  {'image':  np.flip(image, -2).copy(), 'labels': np.flip(labels, -1).copy(), 'index': idx}
-		else:
-			return {'image': image.flip(-1), 'labels': labels.flip(-1), 'index': idx}
+		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
+
+		image = np.flip(image, -2).copy()
+		labels = np.flip(labels, -1).copy()
+
+		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
 		
 
 
 
 class ImageDataset(Dataset):
 	"""Image dataset."""
-	def __init__(self, txt_file, root_dir, bg_indexs=set([]), fg_indexs=None, transform=None):
+	def __init__(self, txt_file, root_dir, bg_indexs=set([]), fg_indexs=None, transform=None, calc_bg=True):
 		"""
 		Args:
 		txt_file (string): Path to the txt file with list of image id, name.
@@ -163,6 +220,7 @@ class ImageDataset(Dataset):
 		self.name_list = np.loadtxt(os.path.join(root_dir, txt_file), dtype='str', delimiter=',')
 		self.root_dir = root_dir
 		self.transform = transform
+		self.calc_bg = calc_bg
 
 		if not fg_indexs:
 			self.bg_indexs = sorted(bg_indexs)
@@ -177,26 +235,29 @@ class ImageDataset(Dataset):
 		img_name = os.path.join(self.root_dir, 'images',
 			self.name_list[idx, 1].strip() + '.jpg')
 
-		image = np.array(io.imread(img_name), dtype=np.float)
+		image = np.array(io.imread(img_name), dtype=np.uint8)
 
 		label_name = os.path.join(self.root_dir, 'labels',
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
+		landmarks = np.array(self.name_list[idx,2:12].reshape(5,2), dtype=np.int)
+
 		labels = []
 		for i in self.fg_indexs:
 			labels.append(io.imread(label_name%i))
-		labels = np.array(labels, dtype=np.float)
-		#labels = np.concatenate((labels, [255.0-labels.sum(0)]), axis=0)
+		labels = np.array(labels, dtype=np.uint8)
 				
-		sample = {'image': image, 'labels': labels, 'index':idx}
+		sample = {'image': image, 'labels': labels, 'index':idx, 'landmarks':landmarks}
 		if self.transform:
 			sample = self.transform(sample)
 
 		# Add background
-		image, labels = sample['image'], sample['labels'],
-		if type(labels).__module__==np.__name__:
-			labels = np.concatenate((labels, [1-labels.sum(0)]), axis=0)
-		else:
-			labels = torch.cat([labels, torch.tensor(1).to(labels.device) - labels.sum(0, keepdim=True)], 0)
-		sample = {'image': image, 'labels': labels, 'index':idx}
+		if self.calc_bg==True:
+			image, labels = sample['image'], sample['labels'],
+			if type(labels).__module__==np.__name__:
+				labels = np.concatenate((labels, [1-labels.sum(0)]), axis=0)
+			else:
+				labels = torch.cat([labels, torch.tensor(1).to(labels.device) - labels.sum(0, keepdim=True)], 0)
+			sample = {'image': image, 'labels': labels, 'index':idx, 'landmarks': landmarks}
+
 		return sample

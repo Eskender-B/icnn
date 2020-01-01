@@ -18,6 +18,7 @@ parser.add_argument("--batch_size", default=10, type=int, help="Batch size to us
 parser.add_argument("--display_freq", default=10, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.001, type=float, help="Learning rate for optimizer")
 parser.add_argument("--epochs", default=10, type=int, help="Number of epochs to train")
+parser.add_argument("--load_model", default=False, type=bool, help="Load saved-model")
 args = parser.parse_args()
 print(args)
 
@@ -37,14 +38,14 @@ valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(),ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(),ToTensor()])])
 
-train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
+train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[DataArg(),ToTensor()]), 
+									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), DataArg(), ToTensor()])])
 
-train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
+train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[DataArg(),ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(), ToTensor()])
 
 
 ## Validation set
@@ -154,6 +155,9 @@ def train_model(part_name, criterion, epochs):
 	model = models[part_name]
 	optimizer = optimizers[part_name]
 	scheduler = schedulers[part_name]
+
+	if args.load_model == True:
+		model = pickle.load(open('res/saved-model-%s.pth'%part_name, 'rb'))
 
 	train_loader = DataLoader(train_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
 	valid_loader = DataLoader(valid_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)

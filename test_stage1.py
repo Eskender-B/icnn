@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from model import ICNN
 from utils import LOG_INFO
-from preprocess import Rescale, ToTensor, ImageDataset, DataArg
+from preprocess import Rescale, ToTensor, ImageDataset, DataArg, FaceDetect
 from torch.utils.data import DataLoader
 from torchvision import transforms, utils
 import argparse
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 import shutil
 import pickle
+from skimage import transform
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
@@ -29,7 +30,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((64,64)),
+                                               Rescale(FaceDetect()),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -97,8 +98,13 @@ def show_error():
 
 	print("Total Error: %.2f"%dist_error.mean())
 
+def map_func1(landmarks, coords):
+	dst = np.array([[-0.25,-0.1], [0.25, -0.1], [0.0, 0.1], [-0.15, 0.4], [0.15, 0.4]])
+	tform = transform.estimate_transform('similarity', landmarks, dst)
+	tform2 = transform.SimilarityTransform(scale=1/32, rotation=0, translation=(-1.0, -1.0))
+	return tform.inverse(tform2(coords))
 
-def save_results(indexs, pred_centroids, orig_centroids):
+def save_results(indexs, pred_centroids, orig_centroids, landmarks=None):
 	pred_centroids = pred_centroids.detach().to('cpu').numpy()
 	orig_centroids = orig_centroids.to('cpu').numpy()
 
@@ -111,20 +117,49 @@ def save_results(indexs, pred_centroids, orig_centroids):
 		#new_h, new_w = [int(resize_num * h / w), resize_num] if h>w else [resize_num, int(resize_num * w / h)]
 		#offset_y, offset_x = (box_size-new_h)//2, (box_size-new_w)//2
 
-		new_h, new_w = 64, 64
+		new_h, new_w = resize_num, resize_num
 		offset_y, offset_x = 0, 0
 
-		plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
-		plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
+		if landmarks == None:
+			plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
+			plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
+		else:
+			orig_centroids[i] = map_func1(landmarks[i], orig_centroids[i])
+			pred_centroids[i] = map_func1(landmarks[i], pred_centroids[i])
+
+			plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
+			plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
+
 
 		plt.legend()
 		plt.savefig('res/'+unresized_dataset.name_list[idx, 1].strip() + '_loc.jpg')
 		plt.close()
 
+def save_maps(ground, pred, indexs):
+	ground = F.one_hot(ground.argmax(1), model.L).transpose(3,1).transpose(2,3)[:,0:8,:,:].sum(1)
+	pred = F.one_hot(pred.argmax(1), model.L).transpose(3,1).transpose(2,3)[:,0:8,:,:].sum(1)
+
+	ground = np.uint8(ground.to('cpu').numpy() * 255)
+	pred = np.uint8(pred.detach().to('cpu').numpy()*255)
+
+	for i,idx in enumerate(indexs):
+		plt.figure(figsize=(12.8, 9.6))
+
+		ax = plt.subplot(1, 2, 1)
+		ax.set_title("Ground Truth")
+		plt.imshow(ground[i])
+
+		ax = plt.subplot(1, 2, 2)
+		ax.set_title("Predicted")
+		plt.imshow(pred[i])
+
+		plt.savefig('res/'+unresized_dataset.name_list[idx, 1].strip() + '_map.jpg')
+		plt.close()
+
 
 with torch.no_grad():
 	for batch in test_loader:
-		images, labels, indexs = batch['image'].to(device), batch['labels'].to(device), batch['index']
+		images, labels, indexs, landmarks = batch['image'].to(device), batch['labels'].to(device), batch['index'], batch['landmarks']
 
 		# Original Centroids
 		orig_labels = F.normalize(labels, 1)
@@ -138,6 +173,7 @@ with torch.no_grad():
 		update_error(pred_centroids, orig_centroids)
 
 		# Save results
-		save_results(indexs, pred_centroids, orig_centroids)
+		save_results(indexs, pred_centroids, orig_centroids, landmarks)
+		save_maps(orig_labels, pred_labels, indexs)
 
 show_error()

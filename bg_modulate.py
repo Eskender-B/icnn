@@ -38,99 +38,14 @@ class Modulator(nn.Module):
 		nn.init.zeros_(self.beta)
 
 
-
 	def forward(self, inp):
-		n,l,h,w = inp.shape
-		#a = torch.ones(l).to(inp.device)
-		#a[-1] = self.alpha
-		#b = torch.zeros(l).to(inp.device)
-		#b[-1] = self.beta
-		
-		#tmp = F.softmax(inp, 1) * a.view(1,-1,1,1) + b.view(1,-1,1,1)
-		#return F.normalize(tmp, 1)
-		#return inp * a.view(1,-1,1,1) + b.view(1,-1,1,1)
-		
-		
-		#tmp = F.softmax(inp,1) * self.alpha.view(1,-1,1,1)
-		#return F.normalize(tmp, 1)
-
 		return inp * self.alpha.view(1,-1,1,1) + self.beta.view(1,-1,1,1)
 
 
-
 	def loss_fn(self, predicted, labels):
-
-		#return criterion(predicted, F.normalize(labels,1))
 		return criterion(predicted, labels.argmax(dim=1, keepdim=False))
 		
-		"""
-		n,l,h,w = labels.shape
-		d = labels.device
-		predicted = torch.clamp(torch.floor(predicted-predicted.max(dim=1, keepdim=True).values + torch.tensor(1.).to(predicted.device)), 0.0, 1.0)
-		labels = torch.clamp(torch.floor(labels-labels.max(dim=1, keepdim=True).values + torch.tensor(1.).to(labels.device)), 0.0, 1.0)
-		
-
-		if l==2:
-			TP,FP,TN,FN = torch.tensor(0.,device=d), torch.tensor(0., device=d), torch.tensor(0., device=d), torch.tensor(0., device=d)
-			TP+= (predicted[:,0,:,:] * labels[:,0,:,:]).sum()
-			FP+= (predicted[:,1,:,:] * labels[:,0,:,:]).sum()
-			TN+= (predicted[:,1,:,:] * labels[:,1,:,:]).sum()
-			FN+= (predicted[:,0,:,:] * labels[:,1,:,:]).sum()
-
-			p = TP / (TP + FP)
-			r = TP/ (TP + FN)
-			F1 = 2* p*r / (p+r)
-			return torch.tensor(1.,device=d)-F1
-
-		else: #l=4
-			precision = torch.tensor([], device=d)
-			recall = torch.tensor([], device=d)
-
-			TP,FP,TN,FN = torch.tensor(0.,device=d), torch.tensor(0., device=d), torch.tensor(0., device=d), torch.tensor(0., device=d)
-			ground = torch.cat( [labels.index_select(1, torch.tensor([0]).to(device)), labels.index_select(1, torch.tensor([1,2,3]).to(device)).sum(1, keepdim=True)], 1)
-			pred = torch.cat( [predicted.index_select(1, torch.tensor([0]).to(device)), labels.index_select(1, torch.tensor([1,2,3]).to(device)).sum(1, keepdim=True)], 1)
-			TP+= (ground[:,0,:,:] * pred[:,0,:,:]).sum()
-			FP+= (ground[:,1,:,:] * pred[:,0,:,:]).sum()
-			TN+= (ground[:,1,:,:] * pred[:,1,:,:]).sum()
-			FN+= (ground[:,0,:,:] * pred[:,1,:,:]).sum()
-			p = TP / (TP + FP)
-			r = TP/ (TP + FN)
-			precision=torch.cat([precision, p.view(1)])
-			recall=torch.cat([recall, r.view(1)])
-
-			TP,FP,TN,FN = torch.tensor(0.,device=d), torch.tensor(0., device=d), torch.tensor(0., device=d), torch.tensor(0., device=d)
-			ground = torch.cat( [labels.index_select(1, torch.tensor([1]).to(device)), labels.index_select(1, torch.tensor([0,2,3]).to(device)).sum(1, keepdim=True)], 1)
-			pred = torch.cat( [predicted.index_select(1, torch.tensor([1]).to(device)), labels.index_select(1, torch.tensor([0,2,3]).to(device)).sum(1, keepdim=True)], 1)
-			TP+= (ground[:,0,:,:] * pred[:,0,:,:]).sum()
-			FP+= (ground[:,1,:,:] * pred[:,0,:,:]).sum()
-			TN+= (ground[:,1,:,:] * pred[:,1,:,:]).sum()
-			FN+= (ground[:,0,:,:] * pred[:,1,:,:]).sum()
-			p = TP / (TP + FP)
-			r = TP/ (TP + FN)
-			precision=torch.cat([precision, p.view(1)])
-			recall=torch.cat([recall, r.view(1)])
-
-			TP,FP,TN,FN = torch.tensor(0.,device=d), torch.tensor(0., device=d), torch.tensor(0., device=d), torch.tensor(0., device=d)
-			ground = torch.cat( [labels.index_select(1, torch.tensor([2]).to(device)), labels.index_select(1, torch.tensor([0,1,3]).to(device)).sum(1, keepdim=True)], 1)
-			pred = torch.cat( [predicted.index_select(1, torch.tensor([2]).to(device)), labels.index_select(1, torch.tensor([0,1,3]).to(device)).sum(1, keepdim=True)], 1)
-			TP+= (ground[:,0,:,:] * pred[:,0,:,:]).sum()
-			FP+= (ground[:,1,:,:] * pred[:,0,:,:]).sum()
-			TN+= (ground[:,1,:,:] * pred[:,1,:,:]).sum()
-			FN+= (ground[:,0,:,:] * pred[:,1,:,:]).sum()
-			p = TP / (TP + FP)
-			r = TP/ (TP + FN)
-			precision=torch.cat([precision, p.view(1)])
-			recall=torch.cat([recall, r.view(1)])
-
-			print("p,r", precision, recall)
-			pn = precision.mean()
-			rl = recall.mean()
-			F1 = 2.* pn*rl / (pn+rl)
-			return torch.tensor(1.,device=d)-F1
-			"""
-
-
-
+	
 	def fit(self, observations, labels):
 		def closure():
 			predicted = self.forward(observations)
