@@ -33,7 +33,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               FaceDetect(),
+                                               Rescale((resize_num,resize_num)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -378,7 +378,7 @@ def main():
 
       ## Extract patches from face from their location given in centroids
       # Get also shift-scaled centroids, offsets and shapes 
-      parts, centroids, orig, offsets, shapes = extract_parts(indexs, centroids, unresized_dataset, landmarks)
+      parts, centroids, orig, offsets, shapes = extract_parts(indexs, centroids, unresized_dataset)
 
       ## Prepare batches for facial parts
       batches = prepare_batches(parts)

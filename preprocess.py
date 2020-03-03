@@ -199,8 +199,8 @@ class Invert(object):
 	def __call__(self, sample):
 		image, labels, index, landmarks = sample['image'], sample['labels'], sample['index'], sample['landmarks']
 
-		image = np.flip(image, -2).copy()
-		labels = np.flip(labels, -1).copy()
+		image = np.flip(image, 1).copy()
+		labels = np.flip(labels, 2).copy()
 
 		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
 		
@@ -240,7 +240,8 @@ class ImageDataset(Dataset):
 		label_name = os.path.join(self.root_dir, 'labels',
 			self.name_list[idx, 1].strip(), self.name_list[idx, 1].strip() + '_lbl%.2d.png')
 
-		landmarks = np.array(self.name_list[idx,2:12].reshape(5,2), dtype=np.int)
+		#landmarks = np.array(self.name_list[idx,2:12].reshape(5,2), dtype=np.int)
+		landmarks = []
 
 		labels = []
 		for i in self.fg_indexs:

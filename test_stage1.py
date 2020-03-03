@@ -30,7 +30,7 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale(FaceDetect()),
+                                               Rescale((resize_num,resize_num)),
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -75,7 +75,7 @@ def calculate_centroids(tensor):
 	center_y = center_y.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
 	center_x = tensor.sum(2) * indexs_x.view(1,1,-1)
 	center_x = center_x.sum(2, keepdim=True) / tensor.sum([2,3]).view(n,l,1)
-	return torch.cat([center_x, center_y], 2)
+	return torch.cat([center_y, center_x], 2)
 
 
 dist_error = np.zeros(9) # For each face part, last is background
@@ -100,7 +100,7 @@ def show_error():
 
 def map_func1(landmarks, coords):
 	dst = np.array([[-0.25,-0.1], [0.25, -0.1], [0.0, 0.1], [-0.15, 0.4], [0.15, 0.4]])
-	tform = transform.estimate_transform('similarity', landmarks, dst)
+	tform = transform.estimate_transform('similarity', np.array(landmarks, np.float), dst)
 	tform2 = transform.SimilarityTransform(scale=1/32, rotation=0, translation=(-1.0, -1.0))
 	return tform.inverse(tform2(coords))
 
@@ -120,15 +120,15 @@ def save_results(indexs, pred_centroids, orig_centroids, landmarks=None):
 		new_h, new_w = resize_num, resize_num
 		offset_y, offset_x = 0, 0
 
-		if landmarks == None:
-			plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
-			plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
+		if landmarks is None:
+			plt.scatter(w/new_w*(orig_centroids[i,:-1, 1]-offset_x), h/new_h*(orig_centroids[i,:-1, 0]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
+			plt.scatter(w/new_w*(pred_centroids[i,:-1, 1]-offset_x), h/new_h*(pred_centroids[i,:-1, 0]-offset_y), s=10, marker='x', c='g', label='Predicted')
 		else:
-			orig_centroids[i] = map_func1(landmarks[i], orig_centroids[i])
-			pred_centroids[i] = map_func1(landmarks[i], pred_centroids[i])
+			orig_centroids[i] = np.flip( map_func1(landmarks[i], np.flip(orig_centroids[i], 1) ), 1)
+			pred_centroids[i] = np.flip( map_func1(landmarks[i], np.flip(pred_centroids[i],1) ), 1)
 
-			plt.scatter(w/new_w*(orig_centroids[i,:-1, 0]-offset_x), h/new_h*(orig_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
-			plt.scatter(w/new_w*(pred_centroids[i,:-1, 0]-offset_x), h/new_h*(pred_centroids[i,:-1, 1]-offset_y), s=10, marker='x', c='g', label='Predicted')
+			plt.scatter((orig_centroids[i,:-1, 1]-offset_x), (orig_centroids[i,:-1, 0]-offset_y), s=10, marker='x', c='r', label='Ground Truth')
+			plt.scatter((pred_centroids[i,:-1, 1]-offset_x), (pred_centroids[i,:-1, 0]-offset_y), s=10, marker='x', c='g', label='Predicted')
 
 
 		plt.legend()
@@ -173,7 +173,7 @@ with torch.no_grad():
 		update_error(pred_centroids, orig_centroids)
 
 		# Save results
-		save_results(indexs, pred_centroids, orig_centroids, landmarks)
+		save_results(indexs, pred_centroids, orig_centroids)
 		save_maps(orig_labels, pred_labels, indexs)
 
 show_error()
