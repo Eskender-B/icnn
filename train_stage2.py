@@ -17,8 +17,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=10, type=int, help="Batch size to use during training.")
 parser.add_argument("--display_freq", default=10, type=int, help="Display frequency")
 parser.add_argument("--lr", default=0.001, type=float, help="Learning rate for optimizer")
-parser.add_argument("--epochs", default=10, type=int, help="Number of epochs to train")
 parser.add_argument("--load_model", default=False, type=bool, help="Load saved-model")
+parser.add_argument("--epochs", default=10, type=int, help="Number of epochs to train")
+parser.add_argument("--epochs_eyebrow", default=0, type=int, help="Number of epochs for eyebrow")
+parser.add_argument("--epochs_eye", default=0, type=int, help="Number of epochs for eye")
+parser.add_argument("--epochs_nose", default=0, type=int, help="Number of epochs for nose")
+parser.add_argument("--epochs_mouth", default=0, type=int, help="Number of epochs for mouth")
+
 args = parser.parse_args()
 print(args)
 
@@ -38,14 +43,14 @@ valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(),ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(),ToTensor()])])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
 
-train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[DataArg(),ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), DataArg(), ToTensor()])])
+train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
+									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
 
-train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[DataArg(),ToTensor()])
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(), ToTensor()])
+train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
 
 
 ## Validation set
@@ -102,9 +107,14 @@ criterion = criterion.to(device)
 def weights_init(m):
     if isinstance(m, nn.Conv2d):
         nn.init.xavier_normal_(m.weight.data)
-        #nn.init.xavier_normal_(m.bias.data)
+        nn.init.xavier_normal_(m.bias.data)
 
-#model.apply(weights_init)
+"""
+models['eyebrow'].apply(weights_init)
+models['eye'].apply(weights_init)
+models['nose'].apply(weights_init)
+models['mouth'].apply(weights_init)
+"""
 #####################################
 
 
@@ -156,12 +166,16 @@ def train_model(part_name, criterion, epochs):
 	optimizer = optimizers[part_name]
 	scheduler = schedulers[part_name]
 
-	if args.load_model == True:
-		model = pickle.load(open('res/saved-model-%s.pth'%part_name, 'rb'))
-
 	train_loader = DataLoader(train_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
 	valid_loader = DataLoader(valid_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
 	test_loader = DataLoader(test_datasets[part_name], batch_size=args.batch_size, shuffle=True, num_workers=4)
+
+
+	if args.load_model == True:
+		model = pickle.load(open('res/saved-model-%s.pth'%part_name, 'rb'))
+		valid_loss = evaluate(model, valid_loader, criterion)
+		LOSS = valid_loss
+
 
 	for epoch in range(1, epochs + 1):
 		train(epoch, model, train_loader, optimizer, criterion)
@@ -172,7 +186,7 @@ def train_model(part_name, criterion, epochs):
 			pickle.dump(model, open('res/saved-model-%s.pth'%part_name, 'wb'))
 
 		#scheduler.step()
-		msg = '...Epoch %02d, val loss (%s) = %.4f' % (epoch, 	part_name, valid_loss)
+		msg = '...Epoch %02d, val loss (%s) = %.4f' % (epoch, part_name, valid_loss)
 		LOG_INFO(msg)
 
 
@@ -185,10 +199,23 @@ def train_model(part_name, criterion, epochs):
 
 
 
-names = ['eyebrow', 'eye', 'nose', 'mouth']
-#names = ['mouth']
-for name in names:
-	if name=='mouth':
-		train_model(name, criterion, 2*args.epochs)
-	else:
-		train_model(name, criterion, args.epochs)
+
+if args.epochs_eyebrow == 0:
+	train_model('eyebrow', criterion, args.epochs)
+else:
+	train_model('eyebrow', criterion, args.epochs_eyebrow)
+
+if args.epochs_eye == 0:
+	train_model('eye', criterion, args.epochs)
+else:
+	train_model('eye', criterion, args.epochs_eye)
+
+if args.epochs_nose == 0:
+	train_model('nose', criterion, args.epochs)
+else:
+	train_model('nose', criterion, args.epochs_nose)
+
+if args.epochs_mouth == 0:
+	train_model('mouth', criterion, args.epochs)
+else:
+	train_model('mouth', criterion, args.epochs_mouth)

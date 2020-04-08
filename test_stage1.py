@@ -26,11 +26,13 @@ else:
 	device = torch.device("cpu")
 
 resize_num = 64
+warp_size = 128
+
 test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((resize_num,resize_num)),
+                                           	   Rescale((resize_num, resize_num))
                                                ToTensor(),
                                            ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
@@ -98,11 +100,6 @@ def show_error():
 
 	print("Total Error: %.2f"%dist_error.mean())
 
-def map_func1(landmarks, coords):
-	dst = np.array([[-0.25,-0.1], [0.25, -0.1], [0.0, 0.1], [-0.15, 0.4], [0.15, 0.4]])
-	tform = transform.estimate_transform('similarity', np.array(landmarks, np.float), dst)
-	tform2 = transform.SimilarityTransform(scale=1/32, rotation=0, translation=(-1.0, -1.0))
-	return tform.inverse(tform2(coords))
 
 def save_results(indexs, pred_centroids, orig_centroids, landmarks=None):
 	pred_centroids = pred_centroids.detach().to('cpu').numpy()

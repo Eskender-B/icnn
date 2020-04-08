@@ -189,6 +189,10 @@ class ToTensor(object):
 		image = torch.from_numpy(image).float()/255
 		labels = torch.from_numpy(labels).float()/255
 
+		#mean = image.mean(dim=(1,2), keepdim=True)
+		#std = image.std(dim=(1,2), keepdim=True)
+		#image = (image - mean)/std
+
 		return {'image':image, 'labels':labels, 'index':index, 'landmarks':landmarks}
 
 

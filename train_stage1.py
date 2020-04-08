@@ -28,12 +28,13 @@ else:
 	device = torch.device("cpu")
 
 resize_num = 64
+
 # Load data
 train_dataset = ImageDataset(txt_file='exemplars.txt',
                                             root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((resize_num,resize_num)),
+                                           	   Rescale((resize_num, resize_num)),
                                                ToTensor()
                                            ]))
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
@@ -44,7 +45,7 @@ valid_dataset = ImageDataset(txt_file='tuning.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                              Rescale((resize_num,resize_num)),
+                                           	Rescale((resize_num, resize_num)),
                                                ToTensor()
                                            ]))
 valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
@@ -55,9 +56,10 @@ test_dataset = ImageDataset(txt_file='testing.txt',
                                            root_dir='data/SmithCVPR2013_dataset_resized',
                                            bg_indexs=set([0,1,10]),
                                            transform=transforms.Compose([
-                                               Rescale((resize_num,resize_num)),
+                                           	Rescale((resize_num, resize_num)),
                                                ToTensor(),
                                            ]))
+
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 

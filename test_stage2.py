@@ -23,8 +23,8 @@ def main():
       ## Get prediction
       pred_labels = {}
       for name in batches:
-        pred_labels[name] = F.one_hot(modulators[name](models[name](batches[name]['image'])).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
-        #pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
+        #pred_labels[name] = F.one_hot(modulators[name](torch.softmax(models[name](batches[name]['image']), 1)).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
+        pred_labels[name] = F.one_hot(models[name](batches[name]['image']).argmax(dim=1), models[name].L).transpose(3,1).transpose(2,3)
 
       ## Update F1-measure stat for this batch
       calculate_F1(batches, pred_labels)

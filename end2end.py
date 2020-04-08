@@ -16,7 +16,7 @@ import pickle
 from skimage import transform
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--batch_size", default=10, type=int, help="Batch size")
+parser.add_argument("--batch_size", default=5, type=int, help="Batch size")
 args = parser.parse_args()
 print(args)
 
@@ -334,6 +334,11 @@ def show_F1():
   RECALL = {}
   tot_p = 0.0
   tot_r = 0.0
+  tp_tot = 0.0
+  fp_tot = 0.0
+  fn_tot = 0.0
+
+
   for key in TP:
     PRECISION[key] = float(TP[key]) / (TP[key] + FP[key] + 0.000001)
     RECALL[key] = float(TP[key]) / (TP[key] + FN[key] + 0.000001)
@@ -342,25 +347,44 @@ def show_F1():
     tot_p += PRECISION[key]
     tot_r += RECALL[key]
 
+    tp_tot += TP[key]
+    fp_tot += FP[key]
+    fn_tot += FN[key]
+
   #avg_p = tot_p/len(TP)
   #avg_r = tot_r/len(TP)
-  #overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r)
+  #overall3 = 2.* avg_p*avg_r/ (avg_p+avg_r)
 
+  """
+  #1st way
   mouth_p = (PRECISION['u_lip'] + PRECISION['i_mouth'] + PRECISION['l_lip'])/3.0
   mouth_r = (RECALL['u_lip'] + RECALL['i_mouth'] + RECALL['l_lip'])/3.0
   mouth_F1 = 2.* mouth_p * mouth_r / (mouth_p+mouth_r+0.0000001)
 
-  avg_p = (PRECISION['eyebrow']+PRECISION['eye']+PRECISION['nose']+mouth_p)/4.0
-  avg_r = (RECALL['eyebrow']+RECALL['eye']+RECALL['nose']+mouth_r)/4.0
-  overall_F1 = 2.* avg_p*avg_r/ (avg_p+avg_r+0.0000001)
+  pre = (PRECISION['eyebrow']+PRECISION['eye']+PRECISION['nose']+mouth_p)/4.0
+  re = (RECALL['eyebrow']+RECALL['eye']+RECALL['nose']+mouth_r)/4.0
+  overall_F1 = 2.* pre*re/ (pre+re+0.0000001)
+  """
 
+  # 2nd way
+  mouth_tp = TP['u_lip'] + TP['i_mouth'] + TP['l_lip']
+  mouth_fp = FP['u_lip'] + FP['i_mouth'] + FP['l_lip']
+  mouth_fn = FN['u_lip'] + FN['i_mouth'] + FN['l_lip']
+  mouth_p = float(mouth_tp) / (mouth_tp + mouth_fp)
+  mouth_r = float(mouth_tp) / (mouth_tp + mouth_fn)
+  mouth_F1 = 2.* mouth_p * mouth_r / (mouth_p + mouth_r)
+
+  pre = tp_tot / (tp_tot + fp_tot)
+  re = tp_tot / (tp_tot + fn_tot)
+  overall_F1 = 2.* pre * re /(pre+re)
 
   print("\n\n", "PART\t\t", "F1-MEASURE ", "PRECISION ", "RECALL")
   for k in F1:
     print("%s\t\t"%k, "%.4f\t"%F1[k], "%.4f\t"%PRECISION[k], "%.4f\t"%RECALL[k])
 
   print("mouth(all)\t", "%.4f\t"%mouth_F1, "%.4f\t"%mouth_p, "%.4f\t"%mouth_r)
-  print("Overall\t\t", "%.4f\t"%overall_F1, "%.4f\t"%avg_p, "%.4f\t"%avg_r)
+  print("Overall\t\t", "%.4f\t"%overall_F1, "%.4f\t"%pre, "%.4f\t"%re)
+
 
 
 

@@ -32,31 +32,53 @@ class Modulator(nn.Module):
 
 	def __init__(self, num):
 		super(Modulator,self).__init__()
-		self.alpha = nn.Parameter(torch.Tensor(num))
+		self.alpha = nn.Parameter(torch.Tensor(1))
 		self.beta = nn.Parameter(torch.Tensor(1))
 		nn.init.ones_(self.alpha)
 		nn.init.zeros_(self.beta)
 
 
 	def forward(self, inp):
-		return inp * self.alpha.view(1,-1,1,1) + self.beta.view(1,-1,1,1)
+		#return inp * self.alpha.view(1,-1,1,1) + self.beta.view(1,-1,1,1)
+		return torch.cat( [inp[:,:-1,:,:], self.alpha * inp[:,-1].unsqueeze(1) + self.beta ], dim=1 )
 
 
 	def loss_fn(self, predicted, labels):
-		return criterion(predicted, labels.argmax(dim=1, keepdim=False))
+		loss = criterion(predicted, labels.argmax(dim=1, keepdim=False))
+
+		"""
+		predicted = torch.floor(predicted - torch.max(predicted, dim=1, keepdim=True).values+1.)
+		labels = torch.floor(labels - torch.max(labels, dim=1, keepdim=True).values+1.)
+		neg_pred =  1. - predicted
+		neg_labels = 1. - labels
+
+		tp = (predicted[:,0] * labels[:,0]).sum()
+		fp = (predicted[:,0] * labels[:,1]).sum()
+		fn = (predicted[:,1] * labels[:,0]).sum()
+
+
+		p = tp/(tp+fp)
+		r = tp/(tp+fn)
+		loss = - (2*p*r/(p+r))
+		"""
 		
-	
+		return loss
+		
+
 	def fit(self, observations, labels):
 		def closure():
+			self.optimizer.zero_grad()
 			predicted = self.forward(observations)
 			loss = self.loss_fn(predicted, labels)
-			#print("test: ", loss)
-			self.optimizer.zero_grad()
 			loss.backward(retain_graph=True)
 			return loss
 		old_params = parameters_to_vector(self.parameters())
-		for lr in LR * .5**np.arange(10):
+		
+		for lr in LR * .9**np.arange(10):
 			self.optimizer = optim.LBFGS(self.parameters(), lr=lr)
+			#predicted = self.forward(observations)
+			#loss = self.loss_fn(predicted, labels)
+			#loss.backward(retain_graph=True)
 			self.optimizer.step(closure)
 			current_params = parameters_to_vector(self.parameters())
 			if any(np.isnan(current_params.data.cpu().numpy())):
@@ -72,10 +94,10 @@ def main():
 
 	## Validation set
 	valid_datasets['eyebrow'] = ConcatDataset([make_dataset('tuning.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
-											   make_dataset('tuning.txt', 'eyebrow2', fg_indexs=set([3]), trans=[ToTensor(), Invert()])])
+											   make_dataset('tuning.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
 
 	valid_datasets['eye'] = ConcatDataset([make_dataset('tuning.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
-										make_dataset('tuning.txt', 'eye2', fg_indexs=set([5]), trans=[ToTensor(), Invert()])])
+										make_dataset('tuning.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
 
 	valid_datasets['nose'] = make_dataset('tuning.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
 	valid_datasets['mouth'] = make_dataset('tuning.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
@@ -96,8 +118,8 @@ def main():
 
 		batch = [b for b in valid_loader][0]
 		image, labels = batch['image'].to(device), batch['labels'].to(device)
-		observations = model(image)
-		loss_before = mod.loss_fn(observations, labels)
+		observations = torch.softmax(model(image),1)
+		loss_before = mod.loss_fn(mod.forward(observations), labels)
 		mod.fit(observations, labels)
 		loss_after = mod.loss_fn(mod.forward(observations), labels)
 		print("Loss Before", loss_before)
