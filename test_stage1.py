@@ -29,12 +29,9 @@ resize_num = 64
 warp_size = 128
 
 test_dataset = ImageDataset(txt_file='testing.txt',
-                                           root_dir='data/SmithCVPR2013_dataset_resized',
+                                           root_dir='data/SmithCVPR2013_dataset_resized_' + str(resize_num),
                                            bg_indexs=set([0,1,10]),
-                                           transform=transforms.Compose([
-                                           	   Rescale((resize_num, resize_num))
-                                               ToTensor(),
-                                           ]))
+                                           transform=transforms.Compose([ ToTensor() ]))
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=1)
 

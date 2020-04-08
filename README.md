@@ -7,6 +7,9 @@ Copy and unzip [Helen](http://pages.cs.wisc.edu/~lizhang/projects/face-parsing/S
 Prepare facial parts (Only once)
 ```python3 extract_parts.py```
 
+Resize dataset (Only once)
+```python3 resize_dataset.py```
+
 Create result folder
 ```mkdir res/```
 

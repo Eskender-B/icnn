@@ -43,14 +43,14 @@ valid_datasets = {}
 test_datasets = {}
 
 ## Training set
-train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[ToTensor()]), 
-										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), ToTensor()])])
+train_datasets['eyebrow'] = ConcatDataset([make_dataset('exemplars.txt', 'eyebrow1', fg_indexs=set([2]), trans=[DataArg(), ToTensor()]), 
+										   make_dataset('exemplars.txt', 'eyebrow2', fg_indexs=set([3]), trans=[Invert(), DataArg(), ToTensor()])])
 
-train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[ToTensor()]), 
-									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), ToTensor()])])
+train_datasets['eye'] = ConcatDataset([make_dataset('exemplars.txt', 'eye1', fg_indexs=set([4]), trans=[DataArg(), ToTensor()]), 
+									make_dataset('exemplars.txt', 'eye2', fg_indexs=set([5]), trans=[Invert(), DataArg(), ToTensor()])])
 
-train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[ToTensor()])
-train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[ToTensor()])
+train_datasets['nose'] = make_dataset('exemplars.txt', 'nose', fg_indexs=set([6]), trans=[DataArg(), ToTensor()])
+train_datasets['mouth'] = make_dataset('exemplars.txt', 'mouth', fg_indexs=set([7,8,9]), trans=[DataArg(), ToTensor()])
 
 
 ## Validation set

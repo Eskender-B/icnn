@@ -31,34 +31,25 @@ resize_num = 64
 
 # Load data
 train_dataset = ImageDataset(txt_file='exemplars.txt',
-                                            root_dir='data/SmithCVPR2013_dataset_resized',
+                                            root_dir='data/SmithCVPR2013_dataset_resized_' + str(resize_num),
                                            bg_indexs=set([0,1,10]),
-                                           transform=transforms.Compose([
-                                           	   Rescale((resize_num, resize_num)),
-                                               ToTensor()
-                                           ]))
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                        shuffle=True, num_workers=4)
+                                           transform=transforms.Compose([ ToTensor() ]))
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
 
 valid_dataset = ImageDataset(txt_file='tuning.txt',
-                                           root_dir='data/SmithCVPR2013_dataset_resized',
+                                           root_dir='data/SmithCVPR2013_dataset_resized_' + str(resize_num),
                                            bg_indexs=set([0,1,10]),
-                                           transform=transforms.Compose([
-                                           	Rescale((resize_num, resize_num)),
-                                               ToTensor()
-                                           ]))
+                                           transform=transforms.Compose([ToTensor()]))
+
 valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
 
 
 test_dataset = ImageDataset(txt_file='testing.txt',
-                                           root_dir='data/SmithCVPR2013_dataset_resized',
+                                           root_dir='data/SmithCVPR2013_dataset_resized_' + str(resize_num),
                                            bg_indexs=set([0,1,10]),
-                                           transform=transforms.Compose([
-                                           	Rescale((resize_num, resize_num)),
-                                               ToTensor(),
-                                           ]))
+                                           transform=transforms.Compose([ ToTensor() ]))
 
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=4)
@@ -130,6 +121,8 @@ epoch_min = 1
 
 if args.load_model == True:
 	model = pickle.load(open('res/saved-model.pth', 'rb'))
+	valid_loss = evaluate(model, valid_loader, criterion)
+	LOSS = valid_loss
 
 
 for epoch in range(1, args.epochs + 1):
